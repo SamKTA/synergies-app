@@ -1,9 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { supabaseBrowser } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'   // <-- remplace l'ancien import
 
 export default function SignInPage() {
-  const supabase = supabaseBrowser()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -13,7 +12,7 @@ export default function SignInPage() {
     setError(null)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: 'https://synergies-app.vercel.app' } // ton URL Vercel
+      options: { emailRedirectTo: 'https://synergies-app.vercel.app' }
     })
     if (error) setError(error.message)
     else setSent(true)
