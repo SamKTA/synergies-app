@@ -21,8 +21,8 @@ type Reco = {
 }
 
 const DEAL_STAGES = [
-  'non_demarre','estime','sous_offre','en_cours','transforme','acte_facture_recrute','sans_suite','mandat_rentre'
-]
+  'nouveau','en_cours','transforme','acte_recrute','sans_suite'
+]as const
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
 
 export default function AdminPage() {
