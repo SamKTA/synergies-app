@@ -36,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
               <nav style={{ display: "flex", gap: 12 }}>
                 <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
+                <Link href="/kanban" style={linkStyle}>Kanban</Link>
                 <Link href="/outbox" style={linkStyle}>Mes envoyées</Link>
                 <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
                 {/* Optionnel : visible seulement pour direction plus tard */}
