@@ -9,10 +9,10 @@ const supabase = createClient(
 )
 
 export default function AdminLink() {
-  const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
-    const run = async () => {
+    (async () => {
       const { data: u } = await supabase.auth.getUser()
       if (!u?.user) return
       const { data: me } = await supabase
@@ -21,18 +21,21 @@ export default function AdminLink() {
         .eq('user_id', u.user.id)
         .maybeSingle()
       setIsAdmin(me?.role === 'admin')
-    }
-    run()
+    })()
   }, [])
 
   if (!isAdmin) return null
-  return <Link href="/admin/commissions" style={linkStyle}>Commissions</Link>
+  return (
+    <Link href="/admin/commissions" style={linkStyle}>
+      Commissions
+    </Link>
+  )
 }
 
 const linkStyle: React.CSSProperties = {
-  color: "white",
+  color: 'white',
   opacity: 0.9,
-  textDecoration: "none",
-  padding: "6px 8px",
+  textDecoration: 'none',
+  padding: '6px 8px',
   borderRadius: 8,
 }
