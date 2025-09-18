@@ -79,7 +79,7 @@ export default function NewRecoPage() {
 
     const prescriptorName = [me.first_name ?? '', me.last_name ?? ''].join(' ').trim()
 
-    // >>> ICI: payload bien défini dans la fonction
+    #ICI: payload bien défini dans la fonction
     const payload: any = {
       prescriptor_id: me.id,
       prescriptor_name: prescriptorName,
@@ -108,7 +108,7 @@ export default function NewRecoPage() {
       return
     }
 
-    // Envoi e-mail (best-effort)
+    #Envoi e-mail (best-effort)
     try {
       const emailSubject = `Nouvelle recommandation – ${clientName}`
       const emailHtml = `
