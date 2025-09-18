@@ -17,7 +17,7 @@ async function sendEmail(to: string, cc: string | null, subject: string, html: s
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'onboarding@resend.dev', // ok en sandbox
+      from: 'onboarding@resend.dev', // OK en mode sandbox
       to: [to],
       cc: cc ? [cc] : undefined,
       subject,
@@ -30,11 +30,17 @@ async function sendEmail(to: string, cc: string | null, subject: string, html: s
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // --- sécurité: clé obligatoire ---
+  const url = new URL(req.url)
+  const key = url.searchParams.get('key') || req.headers.get('x-cron-secret')
+  if (!process.env.CRON_SECRET || key !== process.env.CRON_SECRET) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
+
   try {
     // 1) Cible : non_traitee, créées il y a ≥ 48h
-    //    Et pas rappelées dans les dernières 24h (anti-spam) :
-    //      due_reminder_at IS NULL OR due_reminder_at <= now() - 24h
+    //    et pas rappelées dans les dernières 24h
     const since48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
