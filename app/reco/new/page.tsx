@@ -16,7 +16,6 @@ type Employee = {
 }
 
 export default function NewRecoPage() {
-  // champs formulaire
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -25,7 +24,6 @@ export default function NewRecoPage() {
   const [projectDetails, setProjectDetails] = useState('')
   const [receiverId, setReceiverId] = useState<string>('')
 
-  // état
   const [me, setMe] = useState<Employee | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,13 +41,11 @@ export default function NewRecoPage() {
       setLoading(true)
       setError(null)
 
-      // 1) Qui est connecté ?
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) { setError(userErr.message); setLoading(false); return }
       const user = userData?.user
       if (!user) { setError('Tu dois être connecté.'); setLoading(false); return }
 
-      // 2) Récupère ma fiche employé (prescripteur potentiel)
       const { data: meRow, error: meErr } = await supabase
         .from('employees')
         .select('id, first_name, last_name, email, is_active')
@@ -59,7 +55,6 @@ export default function NewRecoPage() {
       if (!meRow) { setError('Aucune fiche employé liée à ton compte.'); setLoading(false); return }
       setMe(meRow)
 
-      // 3) Récupère la liste des receveurs (tous employés actifs)
       const { data: list, error: listErr } = await supabase
         .from('employees')
         .select('id, first_name, last_name, email, is_active')
@@ -76,16 +71,15 @@ export default function NewRecoPage() {
     e.preventDefault()
     setError(null)
 
-    // petites validations rapides
     if (!me) { setError('Utilisateur non identifié.'); return }
     if (!receiver) { setError('Choisis un receveur.'); return }
     if (!clientName) { setError('Le nom du client est requis.'); return }
 
     setSubmitting(true)
 
-    // construit les champs d'insertion
     const prescriptorName = [me.first_name ?? '', me.last_name ?? ''].join(' ').trim()
 
+    // >>> ICI: payload bien défini dans la fonction
     const payload: any = {
       prescriptor_id: me.id,
       prescriptor_name: prescriptorName,
@@ -103,7 +97,7 @@ export default function NewRecoPage() {
       project_address: projectAddress || null,
     }
 
-    // 4) Insert
+    // Insert
     const { error: insertErr } = await supabase
       .from('recommendations')
       .insert(payload)
@@ -114,7 +108,7 @@ export default function NewRecoPage() {
       return
     }
 
-    // 5) Envoi de l'e-mail au receveur (best-effort)
+    // Envoi e-mail (best-effort)
     try {
       const emailSubject = `Nouvelle recommandation – ${clientName}`
       const emailHtml = `
@@ -145,7 +139,6 @@ export default function NewRecoPage() {
 
     setOk(true)
     setSubmitting(false)
-    // reset minimal
     setClientName(''); setClientEmail(''); setClientPhone('');
     setProjectTitle(''); setProjectAddress(''); setProjectDetails('');
     setReceiverId('')
