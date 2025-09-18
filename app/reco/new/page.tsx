@@ -114,6 +114,35 @@ export default function NewRecoPage() {
       return
     }
 
+    // 5) Envoi de l'e-mail au receveur (best-effort)
+    try {
+      const emailSubject = `Nouvelle recommandation – ${clientName}`
+      const emailHtml = `
+        <h2>Nouvelle recommandation</h2>
+        <p><b>Client:</b> ${clientName}</p>
+        ${clientEmail ? `<p><b>Email client:</b> ${clientEmail}</p>` : ''}
+        ${clientPhone ? `<p><b>Téléphone client:</b> ${clientPhone}</p>` : ''}
+        ${projectTitle ? `<p><b>Projet:</b> ${projectTitle}</p>` : ''}
+        ${projectAddress ? `<p><b>Adresse:</b> ${projectAddress}</p>` : ''}
+        ${projectDetails ? `<p><b>Détails:</b><br/>${projectDetails.replace(/\n/g,'<br/>')}</p>` : ''}
+        <hr/>
+        <p>Prescripteur: ${prescriptorName} (${me.email})</p>
+      `.trim()
+
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: receiver.email,
+          cc: me.email,
+          subject: emailSubject,
+          html: emailHtml
+        })
+      })
+    } catch (e) {
+      console.warn('Email send failed:', e)
+    }
+
     setOk(true)
     setSubmitting(false)
     // reset minimal
@@ -229,44 +258,4 @@ export default function NewRecoPage() {
       </form>
     </main>
   )
-}
-
-// 4) Insert
-const { error: insertErr } = await supabase
-  .from('recommendations')
-  .insert(payload)
-
-if (insertErr) {
-  setError(`Erreur à l’enregistrement: ${insertErr.message}`)
-  setSubmitting(false)
-  return
-}
-
-// 5) Envoi de l'e-mail au receveur (best-effort : on n'échoue pas le formulaire si l'email rate)
-try {
-  const emailSubject = `Nouvelle recommandation – ${clientName}`
-  const emailHtml = `
-    <h2>Nouvelle recommandation</h2>
-    <p><b>Client:</b> ${clientName}</p>
-    ${clientEmail ? `<p><b>Email client:</b> ${clientEmail}</p>` : ''}
-    ${clientPhone ? `<p><b>Téléphone client:</b> ${clientPhone}</p>` : ''}
-    ${projectTitle ? `<p><b>Projet:</b> ${projectTitle}</p>` : ''}
-    ${projectAddress ? `<p><b>Adresse:</b> ${projectAddress}</p>` : ''}
-    ${projectDetails ? `<p><b>Détails:</b><br/>${projectDetails.replace(/\n/g,'<br/>')}</p>` : ''}
-    <hr/>
-    <p>Prescripteur: ${prescriptorName} (${me.email})</p>
-  `.trim()
-
-  await fetch('/api/send-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      to: receiver.email,
-      cc: me.email,
-      subject: emailSubject,
-      html: emailHtml
-    })
-  })
-} catch (e) {
-  console.warn('Email send failed:', e)
 }
