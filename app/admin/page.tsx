@@ -35,11 +35,16 @@ export default function AdminPage() {
   const [stage, setStage] = useState<string>('')
   const [intake, setIntake] = useState<string>('')
 
+  const [dateFrom, setDateFrom] = useState<string>('')   // yyyy-mm-dd
+  const [dateTo, setDateTo]     = useState<string>('')   // yyyy-mm-dd
+
+  const [receiver, setReceiver] = useState<string>('')   // email
+  const [prescriptor, setPrescriptor] = useState<string>('') // email
+
   useEffect(() => {
     const run = async () => {
       setLoading(true); setErr(null)
 
-      // sécurité : s'assurer qu'on est connecté
       const { data: u } = await supabase.auth.getUser()
       if (!u?.user) { setErr('Accès réservé. Connecte-toi.'); setLoading(false); return }
 
@@ -48,7 +53,7 @@ export default function AdminPage() {
         .select('id, created_at, prescriptor_name, prescriptor_email, receiver_email, client_name, project_title, deal_stage, intake_status, amount')
         .order('created_at', { ascending: false })
 
-      if (stage) query = query.eq('deal_stage', stage)
+      if (stage)  query = query.eq('deal_stage', stage)
       if (intake) query = query.eq('intake_status', intake)
 
       const { data, error } = await query
@@ -59,25 +64,58 @@ export default function AdminPage() {
     run()
   }, [stage, intake])
 
-  const filtered = useMemo(() => {
-    if (!q) return data
-    const s = q.toLowerCase()
-    return data.filter(r =>
-      (r.client_name ?? '').toLowerCase().includes(s) ||
-      (r.receiver_email ?? '').toLowerCase().includes(s) ||
-      (r.prescriptor_email ?? '').toLowerCase().includes(s) ||
-      (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
-      (r.project_title ?? '').toLowerCase().includes(s)
-    )
-  }, [q, data])
+  // listes déroulantes dynamiques à partir des données chargées
+  const receiverOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of data) set.add(r.receiver_email)
+    return Array.from(set).sort()
+  }, [data])
+  const prescriptorOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of data) if (r.prescriptor_email) set.add(r.prescriptor_email)
+    return Array.from(set).sort()
+  }, [data])
 
-  // ➜ CA total sur les lignes visibles
+  // application des filtres client
+  const filtered = useMemo(() => {
+    let rows = data
+
+    // filtre texte
+    if (q) {
+      const s = q.toLowerCase()
+      rows = rows.filter(r =>
+        (r.client_name ?? '').toLowerCase().includes(s) ||
+        (r.receiver_email ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_email ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
+        (r.project_title ?? '').toLowerCase().includes(s)
+      )
+    }
+
+    // filtres date
+    if (dateFrom) {
+      const fromTS = new Date(dateFrom + 'T00:00:00').getTime()
+      rows = rows.filter(r => new Date(r.created_at).getTime() >= fromTS)
+    }
+    if (dateTo) {
+      const toTS = new Date(dateTo + 'T23:59:59').getTime()
+      rows = rows.filter(r => new Date(r.created_at).getTime() <= toTS)
+    }
+
+    // filtres email
+    if (receiver)   rows = rows.filter(r => r.receiver_email === receiver)
+    if (prescriptor) rows = rows.filter(r => (r.prescriptor_email ?? '') === prescriptor)
+
+    return rows
+  }, [data, q, dateFrom, dateTo, receiver, prescriptor])
+
+  // CA total visible
   const totalCA = useMemo(
     () => filtered.reduce((sum, r) => sum + (typeof r.amount === 'number' ? r.amount : 0), 0),
     [filtered]
   )
 
-  // ➜ Export CSV des lignes visibles
+  // Export CSV des lignes visibles
   const exportCSV = () => {
     const header = [
       'id','date','client','projet','prescripteur','email_prescripteur',
@@ -93,13 +131,11 @@ export default function AdminPage() {
       r.receiver_email ?? '',
       r.intake_status,
       r.deal_stage,
-      (r.amount ?? '').toString().replace('.', ',') // virgule pour Excel FR
+      (r.amount ?? '').toString().replace('.', ',')
     ]))
-
     const csv = [header, ...rows]
       .map(cols => cols.map(v => {
         const s = String(v ?? '')
-        // échapper ; guillemets et ; remplacer retours lignes
         const safe = s.replace(/"/g, '""').replace(/\r?\n/g, ' ')
         return `"${safe}"`
       }).join(';'))
@@ -118,17 +154,31 @@ export default function AdminPage() {
   }
 
   return (
-    <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+    <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Direction — Recommandations</h1>
 
       {/* Filtres */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 220px 220px', gap:12, margin:'16px 0' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 180px 180px 220px 220px', gap:12, margin:'16px 0' }}>
         <input
-          placeholder="Recherche (client, email receveur/prescripteur, projet)"
+          placeholder="Recherche (client, projet, e-mails…)"
           value={q}
           onChange={e=>setQ(e.target.value)}
           style={{ padding:10 }}
         />
+        <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{ padding:10 }} />
+        <input type="date" value={dateTo}   onChange={e=>setDateTo(e.target.value)}   style={{ padding:10 }} />
+        <select value={receiver} onChange={e=>setReceiver(e.target.value)} style={{ padding:10 }}>
+          <option value="">Receveur — Tous</option>
+          {receiverOptions.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select value={prescriptor} onChange={e=>setPrescriptor(e.target.value)} style={{ padding:10 }}>
+          <option value="">Prescripteur — Tous</option>
+          {prescriptorOptions.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+
+      {/* Filtres pipeline (comme avant) */}
+      <div style={{ display:'grid', gridTemplateColumns:'220px 220px auto', gap:12, margin:'8px 0 20px' }}>
         <select value={stage} onChange={e=>setStage(e.target.value)} style={{ padding:10 }}>
           <option value="">Deal stage — Tous</option>
           {DEAL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -137,19 +187,18 @@ export default function AdminPage() {
           <option value="">Prise en charge — Tous</option>
           {INTAKE.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-      </div>
 
-      {/* KPIs & actions */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, margin:'8px 0 20px' }}>
-        <div style={{ padding:'8px 12px', background:'#f5f5f5', borderRadius:8 }}>
-          Lignes visibles : <b>{filtered.length}</b>
+        <div style={{ display:'flex', alignItems:'center', gap:12, justifyContent:'flex-end' }}>
+          <div style={{ padding:'8px 12px', background:'#f5f5f5', borderRadius:8 }}>
+            Lignes visibles : <b>{filtered.length}</b>
+          </div>
+          <div style={{ padding:'8px 12px', background:'#e6ffed', border:'1px solid #b7eb8f', borderRadius:8 }}>
+            CA total (visible) : <b>{totalCA.toFixed(2)} €</b>
+          </div>
+          <button onClick={exportCSV} style={{ padding:'8px 12px' }}>
+            Export CSV
+          </button>
         </div>
-        <div style={{ padding:'8px 12px', background:'#e6ffed', border:'1px solid #b7eb8f', borderRadius:8 }}>
-          CA total (visible) : <b>{totalCA.toFixed(2)} €</b>
-        </div>
-        <button onClick={exportCSV} style={{ marginLeft:'auto', padding:'8px 12px' }}>
-          Export CSV (lignes filtrées)
-        </button>
       </div>
 
       {loading && <p>Chargement…</p>}
