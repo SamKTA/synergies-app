@@ -17,14 +17,11 @@ type Card = {
 }
 
 const STAGES = [
-  'non_demarre',
-  'estime',
-  'sous_offre',
+  'nouveau',
   'en_cours',
   'transforme',
-  'acte_facture_recrute',
+  'acte_recrute',
   'sans_suite',
-  'mandat_rentre',
 ] as const
 
 export default function KanbanPage() {
@@ -119,14 +116,11 @@ export default function KanbanPage() {
   // petite pastille couleur par colonne
   const stageLabel = (s: string) => {
     switch (s) {
-      case 'non_demarre': return 'Non démarré'
-      case 'estime': return 'Estimé'
-      case 'sous_offre': return 'Sous offre'
+      case 'nouveau': return 'Nouveau'
       case 'en_cours': return 'En cours'
       case 'transforme': return 'Transformé'
-      case 'acte_facture_recrute': return 'Acté/Facturé/Recruté'
+      case 'acte_recrute': return 'Acté/Recruté'
       case 'sans_suite': return 'Sans suite'
-      case 'mandat_rentre': return 'Mandat rentré'
       default: return s
     }
   }
