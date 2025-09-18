@@ -73,3 +73,5 @@ export default function Home() {
     </main>
   )
 }
+
+<p><a href="/outbox">Mes envoyées</a> · <a href="/inbox">Mes reçues</a> · <a href="/admin">Direction</a></p>
