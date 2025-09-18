@@ -19,7 +19,7 @@ type Row = {
 }
 
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
-const DEAL = ['non_demarre','estime','sous_offre','en_cours','transforme','acte_facture_recrute','sans_suite','mandat_rentre']
+const DEAL = ['nouveau','en_cours','transforme','acte_recrute','sans_suite'] as const
 
 export default function InboxPage() {
   const [loading, setLoading] = useState(true)
