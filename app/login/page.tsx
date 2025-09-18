@@ -17,7 +17,7 @@ export default function LoginPage() {
     setError(null)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: 'https://synergies-app-orpi.vercel.app/login' } // ton URL Vercel
+      options: { emailRedirectTo: 'https://synergies-app-orpi.vercel.app' } // ton URL Vercel
     })
     if (error) setError(error.message)
     else setSent(true)
