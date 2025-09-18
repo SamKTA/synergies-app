@@ -10,6 +10,7 @@ import AdminLink from "./_components/AdminLink"; // <-- ajoute ça
   <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
   <AdminLink /> {/* <-- visible seulement aux admins */}
 </nav>
+
 export const metadata = {
   title: "Synergies App",
   description: "Gestion des recommandations",
