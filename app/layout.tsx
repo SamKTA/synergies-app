@@ -1,5 +1,15 @@
 import Link from "next/link";
+import AdminLink from "./_components/AdminLink"; // <-- ajoute ça
 
+// ... (metadata + RootLayout)
+
+<nav style={{ display: "flex", gap: 12 }}>
+  <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
+  <Link href="/outbox" style={linkStyle}>Mes envoyées</Link>
+  <Link href="/kanban" style={linkStyle}>Kanban</Link>
+  <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
+  <AdminLink /> {/* <-- visible seulement aux admins */}
+</nav>
 export const metadata = {
   title: "Synergies App",
   description: "Gestion des recommandations",
