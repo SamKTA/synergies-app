@@ -1,15 +1,13 @@
 import Link from "next/link";
-import AdminLink from "./_components/AdminLink"; // <-- ajoute ça
+import AdminLink from "./_components/AdminLink";
 
-// ... (metadata + RootLayout)
-
-<nav style={{ display: "flex", gap: 12 }}>
-  <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
-  <Link href="/outbox" style={linkStyle}>Mes envoyées</Link>
-  <Link href="/kanban" style={linkStyle}>Kanban</Link>
-  <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
-  <AdminLink /> {/* <-- visible seulement aux admins */}
-</nav>
+const linkStyle: React.CSSProperties = {
+  color: "white",
+  opacity: 0.9,
+  textDecoration: "none",
+  padding: "6px 8px",
+  borderRadius: 8,
+};
 
 export const metadata = {
   title: "Synergies App",
@@ -47,15 +45,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
               <nav style={{ display: "flex", gap: 12 }}>
                 <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
-                <Link href="/kanban" style={linkStyle}>Kanban</Link>
                 <Link href="/outbox" style={linkStyle}>Mes envoyées</Link>
+                <Link href="/kanban" style={linkStyle}>Kanban</Link>
                 <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
-                {/* Optionnel : visible seulement pour direction plus tard */}
-                {/* <Link href="/admin" style={linkStyle}>Direction</Link> */}
+                <AdminLink /> {/* visible uniquement pour les admins */}
               </nav>
             </div>
             <div style={{ opacity: .85, fontSize: 14 }}>
-              {/* Astuce simple : renvoie vers /login qui gère login/logout */}
               <Link href="/login" style={{ color: "white", textDecoration: "none" }}>
                 Se connecter / Mon compte
               </Link>
@@ -72,11 +68,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-
-const linkStyle: React.CSSProperties = {
-  color: "white",
-  opacity: 0.9,
-  textDecoration: "none",
-  padding: "6px 8px",
-  borderRadius: 8,
-};
