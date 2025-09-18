@@ -16,6 +16,7 @@ type Employee = {
 }
 
 export default function NewRecoPage() {
+  // Champs formulaire
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -24,6 +25,7 @@ export default function NewRecoPage() {
   const [projectDetails, setProjectDetails] = useState('')
   const [receiverId, setReceiverId] = useState<string>('')
 
+  // État
   const [me, setMe] = useState<Employee | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,16 +38,19 @@ export default function NewRecoPage() {
     [employees, receiverId]
   )
 
+  // Chargement des données de base
   useEffect(() => {
     const run = async () => {
       setLoading(true)
       setError(null)
 
+      // 1) Utilisateur connecté ?
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) { setError(userErr.message); setLoading(false); return }
       const user = userData?.user
       if (!user) { setError('Tu dois être connecté.'); setLoading(false); return }
 
+      // 2) Ma fiche employé
       const { data: meRow, error: meErr } = await supabase
         .from('employees')
         .select('id, first_name, last_name, email, is_active')
@@ -55,6 +60,7 @@ export default function NewRecoPage() {
       if (!meRow) { setError('Aucune fiche employé liée à ton compte.'); setLoading(false); return }
       setMe(meRow)
 
+      // 3) Liste des receveurs (employés actifs)
       const { data: list, error: listErr } = await supabase
         .from('employees')
         .select('id, first_name, last_name, email, is_active')
@@ -67,6 +73,7 @@ export default function NewRecoPage() {
     run()
   }, [])
 
+  // Soumission du formulaire
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -79,8 +86,8 @@ export default function NewRecoPage() {
 
     const prescriptorName = [me.first_name ?? '', me.last_name ?? ''].join(' ').trim()
 
-    #ICI: payload bien défini dans la fonction
-    const payload: any = {
+    // >>> payload défini DANS la fonction (important)
+    const payload = {
       prescriptor_id: me.id,
       prescriptor_name: prescriptorName,
       prescriptor_email: me.email,
@@ -97,30 +104,30 @@ export default function NewRecoPage() {
       project_address: projectAddress || null,
     }
 
-    // Insert
+    // 4) Insert
     const { error: insertErr } = await supabase
       .from('recommendations')
       .insert(payload)
 
     if (insertErr) {
-      setError(`Erreur à l’enregistrement: ${insertErr.message}`)
+      setError(`Erreur à l’enregistrement : ${insertErr.message}`)
       setSubmitting(false)
       return
     }
 
-    #Envoi e-mail (best-effort)
+    // 5) Envoi de l'e-mail au receveur (best-effort)
     try {
       const emailSubject = `Nouvelle recommandation – ${clientName}`
       const emailHtml = `
         <h2>Nouvelle recommandation</h2>
-        <p><b>Client:</b> ${clientName}</p>
-        ${clientEmail ? `<p><b>Email client:</b> ${clientEmail}</p>` : ''}
-        ${clientPhone ? `<p><b>Téléphone client:</b> ${clientPhone}</p>` : ''}
-        ${projectTitle ? `<p><b>Projet:</b> ${projectTitle}</p>` : ''}
-        ${projectAddress ? `<p><b>Adresse:</b> ${projectAddress}</p>` : ''}
-        ${projectDetails ? `<p><b>Détails:</b><br/>${projectDetails.replace(/\n/g,'<br/>')}</p>` : ''}
+        <p><b>Client :</b> ${clientName}</p>
+        ${clientEmail ? `<p><b>Email client :</b> ${clientEmail}</p>` : ''}
+        ${clientPhone ? `<p><b>Téléphone client :</b> ${clientPhone}</p>` : ''}
+        ${projectTitle ? `<p><b>Projet :</b> ${projectTitle}</p>` : ''}
+        ${projectAddress ? `<p><b>Adresse :</b> ${projectAddress}</p>` : ''}
+        ${projectDetails ? `<p><b>Détails :</b><br/>${projectDetails.replace(/\n/g,'<br/>')}</p>` : ''}
         <hr/>
-        <p>Prescripteur: ${prescriptorName} (${me.email})</p>
+        <p>Prescripteur : ${prescriptorName} (${me.email})</p>
       `.trim()
 
       await fetch('/api/send-email', {
@@ -139,21 +146,28 @@ export default function NewRecoPage() {
 
     setOk(true)
     setSubmitting(false)
+    // reset minimal
     setClientName(''); setClientEmail(''); setClientPhone('');
     setProjectTitle(''); setProjectAddress(''); setProjectDetails('');
     setReceiverId('')
   }
 
   if (loading) {
-    return <main style={{ maxWidth: 720, margin: '64px auto', fontFamily: 'sans-serif' }}>Chargement…</main>
+    return (
+      <main style={{ maxWidth: 720, margin: '64px auto', fontFamily: 'sans-serif' }}>
+        Chargement…
+      </main>
+    )
   }
 
   return (
     <main style={{ maxWidth: 720, margin: '64px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Nouvelle recommandation</h1>
-      {me && <p style={{ opacity: .7, marginTop: 4 }}>
-        Prescripteur : <b>{me.first_name ?? ''} {me.last_name ?? ''}</b> ({me.email})
-      </p>}
+      {me && (
+        <p style={{ opacity: .7, marginTop: 4 }}>
+          Prescripteur : <b>{me.first_name ?? ''} {me.last_name ?? ''}</b> ({me.email})
+        </p>
+      )}
 
       {ok && (
         <div style={{ padding: 12, background: '#e6ffed', border: '1px solid #b7eb8f', margin: '16px 0' }}>
@@ -188,7 +202,7 @@ export default function NewRecoPage() {
           Nom du client *
           <input
             value={clientName}
-            onChange={(e)=>setClientName(e.target.value)}
+            onChange={(e) => setClientName(e.target.value)}
             required
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
@@ -199,7 +213,7 @@ export default function NewRecoPage() {
           <input
             type="email"
             value={clientEmail}
-            onChange={(e)=>setClientEmail(e.target.value)}
+            onChange={(e) => setClientEmail(e.target.value)}
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
         </label>
@@ -208,7 +222,7 @@ export default function NewRecoPage() {
           Téléphone du client
           <input
             value={clientPhone}
-            onChange={(e)=>setClientPhone(e.target.value)}
+            onChange={(e) => setClientPhone(e.target.value)}
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
         </label>
@@ -217,7 +231,7 @@ export default function NewRecoPage() {
           Projet concerné (titre)
           <input
             value={projectTitle}
-            onChange={(e)=>setProjectTitle(e.target.value)}
+            onChange={(e) => setProjectTitle(e.target.value)}
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
         </label>
@@ -226,7 +240,7 @@ export default function NewRecoPage() {
           Adresse du projet
           <input
             value={projectAddress}
-            onChange={(e)=>setProjectAddress(e.target.value)}
+            onChange={(e) => setProjectAddress(e.target.value)}
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
         </label>
@@ -235,7 +249,7 @@ export default function NewRecoPage() {
           Détails du projet
           <textarea
             value={projectDetails}
-            onChange={(e)=>setProjectDetails(e.target.value)}
+            onChange={(e) => setProjectDetails(e.target.value)}
             rows={5}
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
