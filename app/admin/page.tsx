@@ -31,18 +31,18 @@ export default function AdminPage() {
   const [data, setData] = useState<Reco[]>([])
 
   // filtres
-  const [q, setQ] = useState('')                        // recherche email client/receveur/prescripteur
-  const [stage, setStage] = useState<string>('')        // deal_stage
-  const [intake, setIntake] = useState<string>('')      // intake_status
+  const [q, setQ] = useState('')
+  const [stage, setStage] = useState<string>('')
+  const [intake, setIntake] = useState<string>('')
 
   useEffect(() => {
     const run = async () => {
       setLoading(true); setErr(null)
+
       // sécurité : s'assurer qu'on est connecté
       const { data: u } = await supabase.auth.getUser()
       if (!u?.user) { setErr('Accès réservé. Connecte-toi.'); setLoading(false); return }
 
-      // charger les recos (on commence simple, sans pagination)
       let query = supabase
         .from('recommendations')
         .select('id, created_at, prescriptor_name, prescriptor_email, receiver_email, client_name, project_title, deal_stage, intake_status, amount')
@@ -71,6 +71,52 @@ export default function AdminPage() {
     )
   }, [q, data])
 
+  // ➜ CA total sur les lignes visibles
+  const totalCA = useMemo(
+    () => filtered.reduce((sum, r) => sum + (typeof r.amount === 'number' ? r.amount : 0), 0),
+    [filtered]
+  )
+
+  // ➜ Export CSV des lignes visibles
+  const exportCSV = () => {
+    const header = [
+      'id','date','client','projet','prescripteur','email_prescripteur',
+      'email_receveur','intake_status','deal_stage','montant_euros'
+    ]
+    const rows = filtered.map(r => ([
+      r.id,
+      new Date(r.created_at).toLocaleDateString('fr-FR'),
+      r.client_name ?? '',
+      r.project_title ?? '',
+      r.prescriptor_name ?? '',
+      r.prescriptor_email ?? '',
+      r.receiver_email ?? '',
+      r.intake_status,
+      r.deal_stage,
+      (r.amount ?? '').toString().replace('.', ',') // virgule pour Excel FR
+    ]))
+
+    const csv = [header, ...rows]
+      .map(cols => cols.map(v => {
+        const s = String(v ?? '')
+        // échapper ; guillemets et ; remplacer retours lignes
+        const safe = s.replace(/"/g, '""').replace(/\r?\n/g, ' ')
+        return `"${safe}"`
+      }).join(';'))
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const dateStr = new Date().toISOString().slice(0,10)
+    a.download = `recommandations_${dateStr}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Direction — Recommandations</h1>
@@ -91,6 +137,19 @@ export default function AdminPage() {
           <option value="">Prise en charge — Tous</option>
           {INTAKE.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+      </div>
+
+      {/* KPIs & actions */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, margin:'8px 0 20px' }}>
+        <div style={{ padding:'8px 12px', background:'#f5f5f5', borderRadius:8 }}>
+          Lignes visibles : <b>{filtered.length}</b>
+        </div>
+        <div style={{ padding:'8px 12px', background:'#e6ffed', border:'1px solid #b7eb8f', borderRadius:8 }}>
+          CA total (visible) : <b>{totalCA.toFixed(2)} €</b>
+        </div>
+        <button onClick={exportCSV} style={{ marginLeft:'auto', padding:'8px 12px' }}>
+          Export CSV (lignes filtrées)
+        </button>
       </div>
 
       {loading && <p>Chargement…</p>}
