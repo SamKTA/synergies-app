@@ -30,7 +30,7 @@ export default function AdminCommissionsPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [saving, setSaving] = useState<string | null>(null)
   const [q, setQ] = useState('')
-  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current');
+  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current')
 
   // Vérifie que l'utilisateur est admin (sécurité UI ; RLS protège côté DB)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -94,50 +94,48 @@ export default function AdminCommissionsPage() {
     run()
   }, [])
 
+  // ---- Filtre (mois + recherche) ------------------------------------------
   const filtered = useMemo(() => {
-  let list = rows;
-  const today = new Date();
+    let list = rows
+    const today = new Date()
 
-  // Petite utilitaire pour tester l'appartenance à l'intervalle
-  const inRange = (iso?: string | null, start?: Date, end?: Date) => {
-    if (!iso) return false;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return false;
-    if (!start || !end) return true;
-    return d >= start && d <= end;
-  };
-
-  // 1) Filtre par mois (date de référence = paid_at s'il existe, sinon due_date)
-  if (monthFilter !== 'all') {
-    let start: Date, end: Date;
-    if (monthFilter === 'current') {
-      start = new Date(today.getFullYear(), today.getMonth(), 1);
-      end   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    } else { // 'previous'
-      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      end   = new Date(today.getFullYear(), today.getMonth(), 0);
+    const inRange = (iso?: string | null, start?: Date, end?: Date) => {
+      if (!iso) return false
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return false
+      if (!start || !end) return true
+      return d >= start && d <= end
     }
 
-    list = list.filter(r => {
-      const ref = r.paid_at ?? r.due_date; // priorité au payé, sinon échéance
-      return inRange(ref, start, end);
-    });
-  }
+    if (monthFilter !== 'all') {
+      let start: Date, end: Date
+      if (monthFilter === 'current') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1)
+        end   = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      } else {
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        end   = new Date(today.getFullYear(), today.getMonth(), 0)
+      }
+      list = list.filter(r => {
+        const ref = r.paid_at ?? r.due_date // priorité au payé, sinon échéance
+        return inRange(ref, start, end)
+      })
+    }
 
-  // 2) Filtre recherche texte
-  if (q) {
-    const s = q.toLowerCase();
-    list = list.filter(r =>
-      (r.client_name ?? '').toLowerCase().includes(s) ||
-      (r.project_title ?? '').toLowerCase().includes(s) ||
-      (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
-      (r.prescriptor_email ?? '').toLowerCase().includes(s)
-    );
-  }
+    if (q) {
+      const s = q.toLowerCase()
+      list = list.filter(r =>
+        (r.client_name ?? '').toLowerCase().includes(s) ||
+        (r.project_title ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_email ?? '').toLowerCase().includes(s)
+      )
+    }
 
-  return list;
-}, [rows, q, monthFilter]);
+    return list
+  }, [rows, q, monthFilter])
 
+  // ---- Actions -------------------------------------------------------------
   const updateDueDate = async (commissionId: string | null, recoId: string, isoDate: string) => {
     if (!commissionId) { alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement."); return }
     setSaving(commissionId)
@@ -157,26 +155,79 @@ export default function AdminCommissionsPage() {
   }
 
   const saveAmountAndRate = async (recoId: string, amount: number, commissionId: string | null, rate: number | null) => {
-    // Mettre à jour le montant côté reco (source de vérité)
     const { error: e1 } = await supabase.from('recommendations').update({ amount }).eq('id', recoId)
     if (e1) return alert(e1.message)
 
-    // Mettre à jour le taux côté commission (si existe)
     if (commissionId) {
       const { error: e2 } = await supabase.from('commissions').update({ rate: rate ?? 5.0 }).eq('id', commissionId)
       if (e2) return alert(e2.message)
     }
 
-    // Rafraîchit localement
     setRows(prev => prev.map(r => r.reco_id === recoId ? {
       ...r,
       amount,
       rate: rate ?? r.rate ?? 5.0,
-      // recalcul local
       calculated_amount: Math.round(((amount || 0) * (rate ?? r.rate ?? 5.0)) ) / 100
     } : r))
   }
 
+  // ---- Export CSV (déclarée AVANT le return) ------------------------------
+  const exportCsv = () => {
+    const rowsToExport = filtered
+
+    const toCSV = (val: any) => {
+      if (val === null || val === undefined) return ''
+      const s = String(val)
+      return `"${s.replace(/"/g, '""')}"`
+    }
+
+    const fmtDate = (iso?: string | null) =>
+      iso ? new Date(iso).toLocaleDateString('fr-FR') : ''
+
+    const fmtMoney = (n?: number | null) => {
+      const x = typeof n === 'number' ? n : 0
+      return String(x.toFixed(2)).replace('.', ',')
+    }
+
+    const header = [
+      'Date reco','Client','Projet','Prescripteur','Email prescripteur',
+      'Montant CA','Taux %','Commission €','Échéance','Statut','Payé le',
+    ]
+    const lines = [header.map(toCSV).join(';')]
+
+    for (const r of rowsToExport) {
+      const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100
+      const line = [
+        fmtDate(r.created_at),
+        r.client_name ?? '',
+        r.project_title ?? '',
+        r.prescriptor_name ?? '',
+        r.prescriptor_email ?? '',
+        fmtMoney(r.amount ?? 0),
+        (r.rate ?? 5).toString().replace('.', ','),
+        fmtMoney(calc),
+        fmtDate(r.due_date),
+        r.status,
+        fmtDate(r.paid_at),
+      ].map(toCSV).join(';')
+      lines.push(line)
+    }
+
+    const csv = '\uFEFF' + lines.join('\n') // BOM pour Excel
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    a.href = url
+    a.download = `commissions_${y}-${m}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ---- UI -----------------------------------------------------------------
   if (!isAdmin) {
     return (
       <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
@@ -188,50 +239,63 @@ export default function AdminCommissionsPage() {
   return (
     <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Commissions — Affaires actées</h1>
+
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
-  <input
-    placeholder="Recherche (client, projet, salarié)"
-    value={q}
-    onChange={e=>setQ(e.target.value)}
-    style={{ padding:10, flex:1, border:'1px solid #ddd', borderRadius:8 }}
-  />
-  <button
-    onClick={()=>setMonthFilter('current')}
-    style={{
-      padding:'8px 10px',
-      borderRadius:8,
-      border:'1px solid #ddd',
-      background: monthFilter==='current' ? '#1677ff' : 'white',
-      color: monthFilter==='current' ? 'white' : '#111'
-    }}
-  >
-    Mois en cours
-  </button>
-  <button
-    onClick={()=>setMonthFilter('previous')}
-    style={{
-      padding:'8px 10px',
-      borderRadius:8,
-      border:'1px solid #ddd',
-      background: monthFilter==='previous' ? '#1677ff' : 'white',
-      color: monthFilter==='previous' ? 'white' : '#111'
-    }}
-  >
-    Mois dernier
-  </button>
-  <button
-    onClick={()=>setMonthFilter('all')}
-    style={{
-      padding:'8px 10px',
-      borderRadius:8,
-      border:'1px solid #ddd',
-      background: monthFilter==='all' ? '#1677ff' : 'white',
-      color: monthFilter==='all' ? 'white' : '#111'
-    }}
-  >
-    Tout
-  </button>
-</div>
+        <input
+          placeholder="Recherche (client, projet, salarié)"
+          value={q}
+          onChange={e=>setQ(e.target.value)}
+          style={{ padding:10, flex:1, border:'1px solid #ddd', borderRadius:8 }}
+        />
+        <button
+          onClick={()=>setMonthFilter('current')}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #ddd',
+            background: monthFilter==='current' ? '#1677ff' : 'white',
+            color: monthFilter==='current' ? 'white' : '#111'
+          }}
+        >
+          Mois en cours
+        </button>
+        <button
+          onClick={()=>setMonthFilter('previous')}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #ddd',
+            background: monthFilter==='previous' ? '#1677ff' : 'white',
+            color: monthFilter==='previous' ? 'white' : '#111'
+          }}
+        >
+          Mois dernier
+        </button>
+        <button
+          onClick={()=>setMonthFilter('all')}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #ddd',
+            background: monthFilter==='all' ? '#1677ff' : 'white',
+            color: monthFilter==='all' ? 'white' : '#111'
+          }}
+        >
+          Tout
+        </button>
+        <button
+          onClick={exportCsv}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #1677ff',
+            background:'#1677ff',
+            color:'white'
+          }}
+        >
+          Export CSV
+        </button>
+      </div>
 
       {loading && <p>Chargement…</p>}
       {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
@@ -281,7 +345,7 @@ export default function AdminCommissionsPage() {
                       style={{ width:70, padding:6 }}
                     />
                   </td>
-                  <td style={td}>{calc.toFixed(2)}</td>
+                  <td style={td}>{(calc).toFixed(2)}</td>
                   <td style={td}>
                     <input
                       type="date"
@@ -319,90 +383,5 @@ export default function AdminCommissionsPage() {
   )
 }
 
-<button
-  onClick={exportCsv}
-  style={{
-    padding:'8px 10px',
-    borderRadius:8,
-    border:'1px solid #1677ff',
-    background:'#1677ff',
-    color:'white'
-  }}
->
-  Export CSV
-</button>
-
 const th: React.CSSProperties = { textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }
 const td: React.CSSProperties = { padding:8, borderBottom:'1px solid #f1f1f1', verticalAlign:'top' }
-
-const exportCsv = () => {
-  // On exporte ce que tu vois (la liste déjà filtrée)
-  const rowsToExport = filtered;
-
-  const toCSV = (val: any) => {
-    if (val === null || val === undefined) return '';
-    const s = String(val);
-    // échappe les guillemets
-    return `"${s.replace(/"/g, '""')}"`;
-  };
-
-  const fmtDate = (iso?: string | null) =>
-    iso ? new Date(iso).toLocaleDateString('fr-FR') : '';
-
-  const fmtMoney = (n?: number | null) => {
-    const x = typeof n === 'number' ? n : 0;
-    // Excel FR : on garde le séparateur décimal "," en CSV (optionnel)
-    return String(x.toFixed(2)).replace('.', ',');
-  };
-
-  // En-têtes
-  const header = [
-    'Date reco',
-    'Client',
-    'Projet',
-    'Prescripteur',
-    'Email prescripteur',
-    'Montant CA',
-    'Taux %',
-    'Commission €',
-    'Échéance',
-    'Statut',
-    'Payé le',
-  ];
-
-  const lines = [header.map(toCSV).join(';')];
-
-  // Lignes
-  for (const r of rowsToExport) {
-    const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100;
-    const line = [
-      fmtDate(r.created_at),
-      r.client_name ?? '',
-      r.project_title ?? '',
-      r.prescriptor_name ?? '',
-      r.prescriptor_email ?? '',
-      fmtMoney(r.amount ?? 0),
-      (r.rate ?? 5).toString().replace('.', ','),
-      fmtMoney(calc),
-      fmtDate(r.due_date),
-      r.status,
-      fmtDate(r.paid_at),
-    ].map(toCSV).join(';');
-
-    lines.push(line);
-  }
-
-  const csv = '\uFEFF' + lines.join('\n'); // BOM pour Excel
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = (now.getMonth()+1).toString().padStart(2,'0');
-  a.href = url;
-  a.download = `commissions_${y}-${m}.csv`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-};
