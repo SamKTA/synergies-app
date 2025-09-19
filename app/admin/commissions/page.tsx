@@ -7,6 +7,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current');
+
 type Row = {
   reco_id: string
   created_at: string
