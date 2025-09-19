@@ -319,5 +319,90 @@ export default function AdminCommissionsPage() {
   )
 }
 
+<button
+  onClick={exportCsv}
+  style={{
+    padding:'8px 10px',
+    borderRadius:8,
+    border:'1px solid #1677ff',
+    background:'#1677ff',
+    color:'white'
+  }}
+>
+  Export CSV
+</button>
+
 const th: React.CSSProperties = { textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }
 const td: React.CSSProperties = { padding:8, borderBottom:'1px solid #f1f1f1', verticalAlign:'top' }
+
+const exportCsv = () => {
+  // On exporte ce que tu vois (la liste déjà filtrée)
+  const rowsToExport = filtered;
+
+  const toCSV = (val: any) => {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    // échappe les guillemets
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+
+  const fmtDate = (iso?: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('fr-FR') : '';
+
+  const fmtMoney = (n?: number | null) => {
+    const x = typeof n === 'number' ? n : 0;
+    // Excel FR : on garde le séparateur décimal "," en CSV (optionnel)
+    return String(x.toFixed(2)).replace('.', ',');
+  };
+
+  // En-têtes
+  const header = [
+    'Date reco',
+    'Client',
+    'Projet',
+    'Prescripteur',
+    'Email prescripteur',
+    'Montant CA',
+    'Taux %',
+    'Commission €',
+    'Échéance',
+    'Statut',
+    'Payé le',
+  ];
+
+  const lines = [header.map(toCSV).join(';')];
+
+  // Lignes
+  for (const r of rowsToExport) {
+    const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100;
+    const line = [
+      fmtDate(r.created_at),
+      r.client_name ?? '',
+      r.project_title ?? '',
+      r.prescriptor_name ?? '',
+      r.prescriptor_email ?? '',
+      fmtMoney(r.amount ?? 0),
+      (r.rate ?? 5).toString().replace('.', ','),
+      fmtMoney(calc),
+      fmtDate(r.due_date),
+      r.status,
+      fmtDate(r.paid_at),
+    ].map(toCSV).join(';');
+
+    lines.push(line);
+  }
+
+  const csv = '\uFEFF' + lines.join('\n'); // BOM pour Excel
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = (now.getMonth()+1).toString().padStart(2,'0');
+  a.href = url;
+  a.download = `commissions_${y}-${m}.csv`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+};
