@@ -156,13 +156,49 @@ export default function AdminCommissionsPage() {
     <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Commissions — Affaires actées</h1>
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
-        <input
-          placeholder="Recherche (client, projet, salarié)"
-          value={q}
-          onChange={e=>setQ(e.target.value)}
-          style={{ padding:10, flex:1 }}
-        />
-      </div>
+  <input
+    placeholder="Recherche (client, projet, salarié)"
+    value={q}
+    onChange={e=>setQ(e.target.value)}
+    style={{ padding:10, flex:1, border:'1px solid #ddd', borderRadius:8 }}
+  />
+  <button
+    onClick={()=>setMonthFilter('current')}
+    style={{
+      padding:'8px 10px',
+      borderRadius:8,
+      border:'1px solid #ddd',
+      background: monthFilter==='current' ? '#1677ff' : 'white',
+      color: monthFilter==='current' ? 'white' : '#111'
+    }}
+  >
+    Mois en cours
+  </button>
+  <button
+    onClick={()=>setMonthFilter('previous')}
+    style={{
+      padding:'8px 10px',
+      borderRadius:8,
+      border:'1px solid #ddd',
+      background: monthFilter==='previous' ? '#1677ff' : 'white',
+      color: monthFilter==='previous' ? 'white' : '#111'
+    }}
+  >
+    Mois dernier
+  </button>
+  <button
+    onClick={()=>setMonthFilter('all')}
+    style={{
+      padding:'8px 10px',
+      borderRadius:8,
+      border:'1px solid #ddd',
+      background: monthFilter==='all' ? '#1677ff' : 'white',
+      color: monthFilter==='all' ? 'white' : '#111'
+    }}
+  >
+    Tout
+  </button>
+</div>
 
       {loading && <p>Chargement…</p>}
       {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
