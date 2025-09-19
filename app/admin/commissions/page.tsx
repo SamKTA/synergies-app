@@ -7,8 +7,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current');
-
 type Row = {
   reco_id: string
   created_at: string
@@ -32,6 +30,7 @@ export default function AdminCommissionsPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [saving, setSaving] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current');
 
   // Vérifie que l'utilisateur est admin (sécurité UI ; RLS protège côté DB)
   const [isAdmin, setIsAdmin] = useState(false)
