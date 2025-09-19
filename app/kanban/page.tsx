@@ -192,6 +192,16 @@ export default function KanbanPage() {
                     <div style={{ fontSize:12, color:'#94a3b8', marginTop:6 }}>
                       {new Date(card.created_at).toLocaleDateString('fr-FR')}
                     </div>
+
+                    {/* 🔗 Lien vers la page de détails / notes */}
+                    <div style={{ marginTop: 8 }}>
+                      <a
+                        href={`/reco/${card.id}`}
+                        style={{ fontSize: 12, textDecoration: 'none', color: '#1677ff' }}
+                      >
+                        📝 Notes / Détails
+                      </a>
+                    </div>
                   </article>
                 ))}
                 {/* zone vide pour drop */}
