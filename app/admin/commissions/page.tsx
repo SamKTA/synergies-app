@@ -95,15 +95,48 @@ export default function AdminCommissionsPage() {
   }, [])
 
   const filtered = useMemo(() => {
-    if (!q) return rows
-    const s = q.toLowerCase()
-    return rows.filter(r =>
+  let list = rows;
+  const today = new Date();
+
+  // Petite utilitaire pour tester l'appartenance à l'intervalle
+  const inRange = (iso?: string | null, start?: Date, end?: Date) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return false;
+    if (!start || !end) return true;
+    return d >= start && d <= end;
+  };
+
+  // 1) Filtre par mois (date de référence = paid_at s'il existe, sinon due_date)
+  if (monthFilter !== 'all') {
+    let start: Date, end: Date;
+    if (monthFilter === 'current') {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    } else { // 'previous'
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end   = new Date(today.getFullYear(), today.getMonth(), 0);
+    }
+
+    list = list.filter(r => {
+      const ref = r.paid_at ?? r.due_date; // priorité au payé, sinon échéance
+      return inRange(ref, start, end);
+    });
+  }
+
+  // 2) Filtre recherche texte
+  if (q) {
+    const s = q.toLowerCase();
+    list = list.filter(r =>
       (r.client_name ?? '').toLowerCase().includes(s) ||
       (r.project_title ?? '').toLowerCase().includes(s) ||
       (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
       (r.prescriptor_email ?? '').toLowerCase().includes(s)
-    )
-  }, [rows, q])
+    );
+  }
+
+  return list;
+}, [rows, q, monthFilter]);
 
   const updateDueDate = async (commissionId: string | null, recoId: string, isoDate: string) => {
     if (!commissionId) { alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement."); return }
