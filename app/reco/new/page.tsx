@@ -33,10 +33,25 @@ export default function NewRecoPage() {
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
 
+  // Sélecteur intelligent (receveur)
+  const [receiverSearch, setReceiverSearch] = useState('')
+  const [receiverOpen, setReceiverOpen] = useState(false)
+
   const receiver = useMemo(
     () => employees.find(e => e.id === receiverId) ?? null,
     [employees, receiverId]
   )
+
+  const filteredEmployees = useMemo(() => {
+    const s = receiverSearch.trim().toLowerCase()
+    if (!s) return employees
+    return employees.filter(e => {
+      const fn = (e.first_name ?? '').toLowerCase()
+      const ln = (e.last_name ?? '').toLowerCase()
+      const em = (e.email ?? '').toLowerCase()
+      return fn.includes(s) || ln.includes(s) || em.includes(s)
+    })
+  }, [employees, receiverSearch])
 
   // Chargement des données de base
   useEffect(() => {
@@ -86,7 +101,7 @@ export default function NewRecoPage() {
 
     const prescriptorName = [me.first_name ?? '', me.last_name ?? ''].join(' ').trim()
 
-    // >>> payload défini DANS la fonction (important)
+    // payload défini DANS la fonction (important)
     const payload = {
       prescriptor_id: me.id,
       prescriptor_name: prescriptorName,
@@ -149,7 +164,7 @@ export default function NewRecoPage() {
     // reset minimal
     setClientName(''); setClientEmail(''); setClientPhone('');
     setProjectTitle(''); setProjectAddress(''); setProjectDetails('');
-    setReceiverId('')
+    setReceiverId(''); setReceiverSearch(''); setReceiverOpen(false)
   }
 
   if (loading) {
@@ -181,21 +196,69 @@ export default function NewRecoPage() {
       )}
 
       <form onSubmit={onSubmit}>
-        <label style={{ display: 'block', marginTop: 12 }}>
+        {/* ---- Sélecteur intelligent de receveur ---- */}
+        <label style={{ display: 'block', marginTop: 12, position: 'relative' }}>
           Receveur
-          <select
-            value={receiverId}
-            onChange={(e) => setReceiverId(e.target.value)}
-            required
-            style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
-          >
-            <option value="">— Choisir —</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>
-                {(emp.first_name ?? '') + ' ' + (emp.last_name ?? '')} — {emp.email}
-              </option>
-            ))}
-          </select>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <input
+              value={receiverSearch}
+              onChange={(e) => { setReceiverSearch(e.target.value); setReceiverOpen(true) }}
+              onFocus={() => setReceiverOpen(true)}
+              placeholder="Tape un prénom, nom ou e-mail…"
+              style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
+            />
+            {receiverId && (
+              <button
+                type="button"
+                onClick={() => { setReceiverId(''); setReceiverSearch(''); setReceiverOpen(false) }}
+                title="Effacer la sélection"
+                style={{ marginTop: 6, padding:'8px 10px', border:'1px solid #ddd', borderRadius:8, background:'white' }}
+              >
+                Effacer
+              </button>
+            )}
+          </div>
+
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+            {receiver
+              ? <>Sélectionné : <b>{receiver.first_name ?? ''} {receiver.last_name ?? ''}</b> — {receiver.email}</>
+              : <>Aucun receveur sélectionné</>}
+          </div>
+
+          {receiverOpen && (
+            <div
+              style={{
+                position: 'absolute', left: 0, right: 0, top: '100%',
+                background: 'white', border: '1px solid #e5e7eb', borderTop: 'none',
+                zIndex: 20, maxHeight: 240, overflowY: 'auto', borderRadius: '0 0 10px 10px'
+              }}
+              onMouseDown={(e) => e.preventDefault()} // évite le blur pendant le clic
+            >
+              {filteredEmployees.length === 0 && (
+                <div style={{ padding: 10, color: '#94a3b8' }}>Aucun résultat…</div>
+              )}
+              {filteredEmployees.map(emp => (
+                <button
+                  key={emp.id}
+                  type="button"
+                  onClick={() => {
+                    setReceiverId(emp.id)
+                    setReceiverSearch(`${emp.first_name ?? ''} ${emp.last_name ?? ''} — ${emp.email}`)
+                    setReceiverOpen(false)
+                  }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '10px 12px', border: 'none', background: 'white', cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                  onMouseOut={(e) => (e.currentTarget.style.background = 'white')}
+                >
+                  <div style={{ fontWeight: 600 }}>{(emp.first_name ?? '')} {(emp.last_name ?? '')}</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>{emp.email}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </label>
 
         <label style={{ display: 'block', marginTop: 12 }}>
