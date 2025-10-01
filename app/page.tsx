@@ -53,20 +53,18 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0] p-4">
-      <div className="bg-white shadow-2xl rounded-2xl p-10 max-w-xl w-full text-center space-y-6">
+    <div className="min-h-screen bg-gray-100 px-6 py-12">
+      <div className="max-w-3xl mx-auto bg-white shadow-md rounded-xl p-10 space-y-6">
         <h1 className="text-3xl font-bold text-gray-800">🎯 Synergies App</h1>
 
         {loading ? (
           <p className="text-gray-500 text-sm animate-pulse">Chargement...</p>
         ) : employee ? (
-          <div className="text-lg">
-            <p>Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋</p>
-          </div>
+          <p className="text-lg">Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋</p>
         ) : (
-          <div className="space-y-2 text-gray-700">
-            <p className="text-base">Bienvenue dans l’espace Synergies.</p>
-            <div className="bg-gray-100 rounded-md p-3 text-sm text-left">
+          <>
+            <p className="text-base text-gray-700">Bienvenue dans l’espace Synergies.</p>
+            <div className="bg-gray-100 rounded-md p-3 text-sm text-left text-gray-800">
               <p><span className="font-semibold">email :</span> <code>{email ?? '—'}</code></p>
               <p><span className="font-semibold">user.id :</span> <code>{userId ?? '—'}</code></p>
             </div>
@@ -89,9 +87,9 @@ export default function Home() {
             >
               Se connecter
             </a>
-          </div>
+          </>
         )}
       </div>
-    </main>
+    </div>
   )
 }
