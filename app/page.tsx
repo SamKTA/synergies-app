@@ -53,43 +53,42 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-gray-100 px-6 py-12 font-sans">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-8 space-y-6">
-        {/* ✅ Bloc test visuel */}
-        <div className="bg-green-100 text-green-800 px-4 py-2 rounded">
-          ✅ Tailwind est actif sur cette page !
-        </div>
-
-        <h1 className="text-3xl font-bold text-gray-800">🎯 Synergies App</h1>
+    <main className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center px-6 py-12">
+      <div className="w-full max-w-3xl bg-white shadow-2xl rounded-2xl p-10 space-y-6">
+        <h1 className="text-4xl font-extrabold text-gray-800">🎯 Synergies App</h1>
 
         {loading ? (
           <p className="text-gray-500 animate-pulse">Chargement...</p>
         ) : employee ? (
-          <p className="text-lg">Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋</p>
+          <p className="text-lg text-gray-700">
+            Bonjour <span className="font-semibold">{employee.first_name} {employee.last_name}</span> 👋
+          </p>
         ) : (
           <>
-            <p className="text-base text-gray-700">Bienvenue dans l’espace Synergies.</p>
+            <p className="text-lg text-gray-700">
+              Bienvenue dans l’espace Synergies.
+            </p>
 
-            <div className="bg-gray-100 p-4 rounded text-sm text-gray-800">
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-4 text-sm">
               <p><strong>email :</strong> <code>{email ?? '—'}</code></p>
               <p><strong>user.id :</strong> <code>{userId ?? '—'}</code></p>
             </div>
 
             {errMsg && (
-              <div className="bg-red-100 text-red-700 px-4 py-2 rounded border border-red-300">
+              <div className="bg-red-100 text-red-700 px-4 py-2 rounded-md border border-red-300">
                 Erreur : {errMsg}
               </div>
             )}
 
             {!errMsg && (
               <p className="text-sm text-gray-500 italic">
-                Clique sur <b>se connecter</b> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.
+                Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel, ou pour activer ton compte si c’est ta première connexion.
               </p>
             )}
 
             <a
               href="/login"
-              className="inline-block bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 transition"
+              className="inline-block bg-indigo-600 text-white px-6 py-2 rounded-md font-medium hover:bg-indigo-700 transition"
             >
               Se connecter
             </a>
