@@ -23,9 +23,18 @@ export default function Home() {
 
       // 1) Qui est connecté ?
       const { data: userData, error: getUserErr } = await supabase.auth.getUser()
-      if (getUserErr) setErrMsg(`getUser error: ${getUserErr.message}`)
+      if (getUserErr) {
+        // Ne pas afficher cette erreur si c’est juste une absence de session
+        if (getUserErr.message !== 'Auth session missing!') {
+          setErrMsg(`getUser error: ${getUserErr.message}`)
+        }
+      }
+
       const user = userData?.user ?? null
-      if (!user) { setLoading(false); return }
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
       setEmail(user.email ?? null)
       setUserId(user.id)
