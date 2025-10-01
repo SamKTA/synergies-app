@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AdminLink from "./_components/AdminLink";
+import './globals.css';
 
 const linkStyle: React.CSSProperties = {
   color: "white",
