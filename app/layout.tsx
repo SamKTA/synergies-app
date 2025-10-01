@@ -12,6 +12,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body className="bg-gray-100 text-gray-900">
         <div className="min-h-screen flex flex-col">
+
+          {/* ✅ TEST visuel temporaire */}
+          <div className="bg-red-600 text-white text-center font-bold py-2">
+            LAYOUT EN PLACE ✅
+          </div>
+
           {/* HEADER */}
           <header className="bg-gray-900 text-white shadow-md">
             <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
