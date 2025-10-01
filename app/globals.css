@@ -2,7 +2,4 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ✅ TEST TEMPORAIRE */
-body {
-  background: linear-gradient(to bottom right, #facc15, #fef3c7); /* dégradé jaune clair */
-}
+
