@@ -74,7 +74,7 @@ export default function Home() {
           {errMsg ? (
             <p style={{color:'crimson'}}>Erreur: {errMsg}</p>
           ) : (
-            <p>Ton compte n’est pas encore activé. Clique sur se connecter pour l'activer.</p>
+            <p>Clique sur se connecter pour activer ou se connecter à ton compte.</p>
           )}
           <p><a href="/login">Se connecter</a></p>
         </>
