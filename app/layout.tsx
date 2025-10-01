@@ -2,13 +2,6 @@ import Link from "next/link"
 import AdminLink from "./_components/AdminLink"
 import "./globals.css"
 
-const linkStyle: React.CSSProperties = {
-  color: "white",
-  opacity: 0.9,
-  textDecoration: "none",
-  padding: "6px 8px",
-}
-
 export const metadata = {
   title: "Synergies App",
   description: "Recommandations internes Orpi",
@@ -17,19 +10,22 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>
-        <div style={{ backgroundColor: "#111827", padding: 12, display: "flex", justifyContent: "space-between" }}>
-          <div>
-            <Link href="/" style={{ ...linkStyle, fontWeight: "bold" }}>🎯 Synergies</Link>
-            <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
-            <Link href="/outbox" style={linkStyle}>Mes envoyées</Link>
-            <Link href="/kanban" style={linkStyle}>Kanban</Link>
-            <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
+      <body className="bg-gray-50 text-gray-900 min-h-screen">
+        <header className="bg-gray-900 text-white shadow-md px-6 py-4 flex justify-between items-center">
+          <nav className="flex flex-wrap items-center gap-6 text-sm font-medium">
+            <Link href="/" className="hover:underline">🎯 Synergies</Link>
+            <Link href="/inbox" className="hover:underline">Mes reçues</Link>
+            <Link href="/outbox" className="hover:underline">Mes envoyées</Link>
+            <Link href="/kanban" className="hover:underline">Kanban</Link>
+            <Link href="/reco/new" className="hover:underline">Nouvelle reco</Link>
             <AdminLink />
-          </div>
-          <Link href="/login" style={linkStyle}>Se connecter / Mon compte</Link>
-        </div>
-        <main>{children}</main>
+          </nav>
+          <Link href="/login" className="hover:underline text-sm">Se connecter / Mon compte</Link>
+        </header>
+
+        <main className="px-6 md:px-10 py-10 max-w-4xl mx-auto">
+          {children}
+        </main>
       </body>
     </html>
   )
