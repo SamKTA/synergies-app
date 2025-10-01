@@ -21,13 +21,9 @@ export default function Home() {
       setLoading(true)
       setErrMsg(null)
 
-      // 1) Qui est connecté ?
       const { data: userData, error: getUserErr } = await supabase.auth.getUser()
-      if (getUserErr) {
-        // Ne pas afficher cette erreur si c’est juste une absence de session
-        if (getUserErr.message !== 'Auth session missing!') {
-          setErrMsg(`getUser error: ${getUserErr.message}`)
-        }
+      if (getUserErr && getUserErr.message !== 'Auth session missing!') {
+        setErrMsg(`getUser error: ${getUserErr.message}`)
       }
 
       const user = userData?.user ?? null
@@ -39,11 +35,9 @@ export default function Home() {
       setEmail(user.email ?? null)
       setUserId(user.id)
 
-      // 2) Binder (au cas où)
       const { error: bindErr } = await supabase.rpc('bind_user_to_employee')
       if (bindErr) setErrMsg(`bind error: ${bindErr.message}`)
 
-      // 3) Récupérer sa fiche employé par user_id
       const { data: emp, error: empErr } = await supabase
         .from('employees')
         .select('first_name,last_name')
@@ -59,26 +53,45 @@ export default function Home() {
   }, [])
 
   return (
-    <main style={{ maxWidth: 720, margin: '64px auto', padding: 24, fontFamily: 'sans-serif' }}>
-      <h1>Synergies App</h1>
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0] p-4">
+      <div className="bg-white shadow-2xl rounded-2xl p-10 max-w-xl w-full text-center space-y-6">
+        <h1 className="text-3xl font-bold text-gray-800">🎯 Synergies App</h1>
 
-      {loading ? (
-        <p>Chargement...</p>
-      ) : employee ? (
-        <p>Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋</p>
-      ) : (
-        <>
-          <p>Bienvenue.</p>
-          <p>email: <code>{email ?? '—'}</code></p>
-          <p>user.id: <code>{userId ?? '—'}</code></p>
-          {errMsg ? (
-            <p style={{color:'crimson'}}>Erreur: {errMsg}</p>
-          ) : (
-            <p>Clique sur le bouton se connecter pour activer ton compte ou pour accéder à ton espace personnel.</p>
-          )}
-          <p><a href="/login">Se connecter</a></p>
-        </>
-      )}
+        {loading ? (
+          <p className="text-gray-500 text-sm animate-pulse">Chargement...</p>
+        ) : employee ? (
+          <div className="text-lg">
+            <p>Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋</p>
+          </div>
+        ) : (
+          <div className="space-y-2 text-gray-700">
+            <p className="text-base">Bienvenue dans l’espace Synergies.</p>
+            <div className="bg-gray-100 rounded-md p-3 text-sm text-left">
+              <p><span className="font-semibold">email :</span> <code>{email ?? '—'}</code></p>
+              <p><span className="font-semibold">user.id :</span> <code>{userId ?? '—'}</code></p>
+            </div>
+
+            {errMsg && (
+              <div className="bg-red-100 text-red-700 px-4 py-2 rounded-md text-sm border border-red-300">
+                Erreur : {errMsg}
+              </div>
+            )}
+
+            {!errMsg && (
+              <p className="text-sm text-gray-500 italic">
+                Clique sur <b>se connecter</b> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.
+              </p>
+            )}
+
+            <a
+              href="/login"
+              className="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 transition"
+            >
+              Se connecter
+            </a>
+          </div>
+        )}
+      </div>
     </main>
   )
 }
