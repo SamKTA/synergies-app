@@ -53,17 +53,23 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-gray-100 p-10 font-sans">
-      <div className="bg-white max-w-3xl mx-auto p-8 rounded-lg shadow space-y-6">
+    <main className="min-h-screen bg-gray-100 px-6 py-12 font-sans">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-8 space-y-6">
+        {/* ✅ Bloc test visuel */}
+        <div className="bg-green-100 text-green-800 px-4 py-2 rounded">
+          ✅ Tailwind est actif sur cette page !
+        </div>
+
         <h1 className="text-3xl font-bold text-gray-800">🎯 Synergies App</h1>
 
         {loading ? (
-          <p className="text-gray-500">Chargement...</p>
+          <p className="text-gray-500 animate-pulse">Chargement...</p>
         ) : employee ? (
-          <p>Bonjour <strong>{employee.first_name} {employee.last_name}</strong> 👋</p>
+          <p className="text-lg">Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋</p>
         ) : (
           <>
-            <p>Bienvenue dans l’espace Synergies.</p>
+            <p className="text-base text-gray-700">Bienvenue dans l’espace Synergies.</p>
+
             <div className="bg-gray-100 p-4 rounded text-sm text-gray-800">
               <p><strong>email :</strong> <code>{email ?? '—'}</code></p>
               <p><strong>user.id :</strong> <code>{userId ?? '—'}</code></p>
@@ -77,7 +83,7 @@ export default function Home() {
 
             {!errMsg && (
               <p className="text-sm text-gray-500 italic">
-                Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel, ou pour activer ton compte si c’est ta première connexion.
+                Clique sur <b>se connecter</b> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.
               </p>
             )}
 
