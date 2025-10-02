@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'onboarding@resend.dev',           // remplace plus tard par un domaine vérifié
+        from: 'notification@agence-skdigital.fr',          
         to: Array.isArray(to) ? to : [to],
         cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
         subject,
