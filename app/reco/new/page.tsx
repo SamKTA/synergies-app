@@ -1,133 +1,39 @@
-'use client'
+import { NextResponse } from 'next/server'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-export default function NewRecoPage() {
-  const [clientName, setClientName] = useState('')
-  const [projectTitle, setProjectTitle] = useState('')
-  const [receiverEmail, setReceiverEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: any) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    // 1. Obtenir l'utilisateur connecté
-    const { data: userData, error: userError } = await supabase.auth.getUser()
-    if (userError || !userData?.user) {
-      setError('Utilisateur non connecté')
-      setLoading(false)
-      return
+export async function POST(req: Request) {
+  try {
+    const { to, cc, subject, html } = await req.json()
+    if (!to || !subject || !html) {
+      return NextResponse.json({ ok: false, error: 'Missing fields' }, { status: 400 })
     }
 
-    // 2. Récupérer l'employee connecté
-    const { data: me, error: meError } = await supabase
-      .from('employees')
-      .select('id, full_name')
-      .eq('user_id', userData.user.id)
-      .maybeSingle()
-
-    if (meError || !me) {
-      setError('Fiche employé introuvable.')
-      setLoading(false)
-      return
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ ok: false, error: 'RESEND_API_KEY missing' }, { status: 500 })
     }
 
-    // 3. Récupérer l'ID du receveur via son e-mail
-    const { data: receiver, error: receiverError } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('email', receiverEmail)
-      .maybeSingle()
-
-    if (receiverError || !receiver) {
-      setError("Destinataire non trouvé.")
-      setLoading(false)
-      return
-    }
-
-    // 4. Créer la recommandation
-    const { error: insertError } = await supabase.from('recommendations').insert({
-      client_name: clientName,
-      project_title: projectTitle,
-      prescriptor_id: me.id,
-      prescriptor_name: me.full_name,
-      presriptor_email: userData.user.email,
-      receiver_id: receiver.id,
-      receiver_email: receiverEmail,
-    })
-
-    if (insertError) {
-      setError(insertError.message)
-      setLoading(false)
-      return
-    }
-
-    // 5. Envoyer un e-mail au receveur
-    await fetch('/api/send-email', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': Bearer ${apiKey},
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
-        to: receiverEmail,
-        subject: 'Nouvelle recommandation reçue',
-        html: `
-          <p>Bonjour,</p>
-          <p>Vous avez reçu une nouvelle recommandation de <strong>${me.full_name}</strong>.</p>
-          <p><strong>Client :</strong> ${clientName}</p>
-          <p><strong>Projet :</strong> ${projectTitle}</p>
-          <p><a href="https://synergies-app-orpi.vercel.app/inbox">Voir ma reco</a></p>
-        `,
-      }),
+        from: 'onboarding@resend.dev',           // remplace plus tard par un domaine vérifié
+        to: Array.isArray(to) ? to : [to],
+        cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
+        subject,
+        html
+      })
     })
 
-    setSuccess(true)
-    setLoading(false)
-    setClientName('')
-    setProjectTitle('')
-    setReceiverEmail('')
+    if (!res.ok) {
+      const err = await res.text()
+      return NextResponse.json({ ok: false, error: err }, { status: res.status })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message ?? 'unknown error' }, { status: 500 })
   }
-
-  return (
-    <main style={{ maxWidth: 600, margin: '48px auto', padding: 24 }}>
-      <h1>Nouvelle recommandation</h1>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
-        <input
-          type="text"
-          placeholder="Nom du client"
-          value={clientName}
-          onChange={e => setClientName(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Projet"
-          value={projectTitle}
-          onChange={e => setProjectTitle(e.target.value)}
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email du receveur"
-          value={receiverEmail}
-          onChange={e => setReceiverEmail(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Envoi…' : 'Envoyer la reco'}
-        </button>
-        {success && <p style={{ color: 'green' }}>Recommandation envoyée ✅</p>}
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      </form>
-    </main>
-  )
 }
