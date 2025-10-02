@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
@@ -11,41 +10,45 @@ const supabase = createClient(
 export default function HomePage() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [fullName, setFullName] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const run = async () => {
       const { data, error } = await supabase.auth.getUser()
       if (data?.user) {
-        setUserEmail(data.user.email)
+        setUserEmail(data.user.email ?? null)
         setUserId(data.user.id)
+
+        // Récupération du prénom/nom
+        const { data: emp, error: empErr } = await supabase
+          .from('employees')
+          .select('first_name, last_name')
+          .eq('user_id', data.user.id)
+          .maybeSingle()
+
+        if (emp && emp.first_name && emp.last_name) {
+          setFullName(`${emp.first_name} ${emp.last_name}`)
+        }
       }
     }
-    fetchUser()
+    run()
   }, [])
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <div className="max-w-xl text-center">
-        <h1 className="text-2xl font-bold mb-4">Bienvenue dans l'espace Synergies.</h1>
-
-        <p className="mb-2">
-          <strong>email :</strong> {userEmail ?? '–'}
-        </p>
-        <p className="mb-4">
-          <strong>user.id :</strong> {userId ?? '–'}
-        </p>
-
-        <p className="mb-4">
-          Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel,
-          ou pour activer ton compte si c’est ta première connexion.
-        </p>
-
-        <a
-          href="/login"
-          className="inline-block px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
-        >
-          Se connecter
-        </a>
+    <main className="min-h-screen flex items-center justify-center text-center px-4">
+      <div className="max-w-xl">
+        {userEmail && userId && fullName ? (
+          <>
+            <h1 className="text-2xl font-semibold mb-2">Bonjour {fullName} 👋</h1>
+            <p className="text-gray-700">Bienvenue dans l'espace Synergies.</p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-semibold mb-2">Bienvenue dans l'espace Synergies.</h1>
+            <p className="mb-2">Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.</p>
+            <a href="/login" className="text-blue-600 underline">Se connecter</a>
+          </>
+        )}
       </div>
     </main>
   )
