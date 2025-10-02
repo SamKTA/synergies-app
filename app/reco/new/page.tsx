@@ -139,6 +139,7 @@ export default function NewRecoPage() {
         ${projectDetails ? `<p><b>Détails :</b><br/>${projectDetails.replace(/\n/g,'<br/>')}</p>` : ''}
         <hr/>
         <p>Prescripteur : ${prescriptorName} (${me.email})</p>
+        <p style="margin-top: 20px;"><a href="https://synergies-app-orpi.vercel.app" style="background: #2563eb; color: white; padding: 10px 16px; text-decoration: none; border-radius: 6px; display: inline-block;">🔗 Ouvrir l'application Synergies</a></p>
       `.trim()
 
       await fetch('/api/send-email', {
