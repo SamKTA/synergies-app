@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
@@ -7,88 +8,44 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-type Employee = { first_name: string | null; last_name: string | null }
-
-export default function Home() {
-  const [loading, setLoading] = useState(true)
-  const [employee, setEmployee] = useState<Employee | null>(null)
-  const [email, setEmail] = useState<string | null>(null)
+export default function HomePage() {
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const [errMsg, setErrMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    const run = async () => {
-      setLoading(true)
-      setErrMsg(null)
-
-      const { data: userData, error: getUserErr } = await supabase.auth.getUser()
-      if (getUserErr && getUserErr.message !== 'Auth session missing!') {
-        setErrMsg(`getUser error: ${getUserErr.message}`)
+    const fetchUser = async () => {
+      const { data, error } = await supabase.auth.getUser()
+      if (data?.user) {
+        setUserEmail(data.user.email)
+        setUserId(data.user.id)
       }
-
-      const user = userData?.user ?? null
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      setEmail(user.email ?? null)
-      setUserId(user.id)
-
-      const { error: bindErr } = await supabase.rpc('bind_user_to_employee')
-      if (bindErr) setErrMsg(`bind error: ${bindErr.message}`)
-
-      const { data: emp, error: empErr } = await supabase
-        .from('employees')
-        .select('first_name,last_name')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (empErr) setErrMsg(`select error: ${empErr.message}`)
-      if (emp) setEmployee(emp)
-
-      setLoading(false)
     }
-    run()
+    fetchUser()
   }, [])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 p-6">
-      <div className="bg-white shadow-xl rounded-xl p-10 w-full max-w-xl text-center space-y-6">
-        <h1 className="text-3xl font-bold text-gray-800">🎯 Synergies App</h1>
+    <main className="min-h-screen flex items-center justify-center px-4">
+      <div className="max-w-xl text-center">
+        <h1 className="text-2xl font-bold mb-4">Bienvenue dans l'espace Synergies.</h1>
 
-        {loading ? (
-          <p className="text-gray-500 text-sm animate-pulse">Chargement...</p>
-        ) : employee ? (
-          <p className="text-lg">Bonjour <strong>{employee.first_name} {employee.last_name}</strong> 👋</p>
-        ) : (
-          <>
-            <p className="text-gray-700">Bienvenue dans l’espace Synergies.</p>
-            <div className="bg-gray-100 p-4 rounded-md text-left text-sm">
-              <p><strong>email :</strong> <code>{email ?? '—'}</code></p>
-              <p><strong>user.id :</strong> <code>{userId ?? '—'}</code></p>
-            </div>
+        <p className="mb-2">
+          <strong>email :</strong> {userEmail ?? '–'}
+        </p>
+        <p className="mb-4">
+          <strong>user.id :</strong> {userId ?? '–'}
+        </p>
 
-            {errMsg && (
-              <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-md text-sm">
-                Erreur : {errMsg}
-              </div>
-            )}
+        <p className="mb-4">
+          Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel,
+          ou pour activer ton compte si c’est ta première connexion.
+        </p>
 
-            {!errMsg && (
-              <p className="text-sm text-gray-500">
-                Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.
-              </p>
-            )}
-
-            <a
-              href="/login"
-              className="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition"
-            >
-              Se connecter
-            </a>
-          </>
-        )}
+        <a
+          href="/login"
+          className="inline-block px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+        >
+          Se connecter
+        </a>
       </div>
     </main>
   )
