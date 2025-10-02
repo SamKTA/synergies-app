@@ -14,19 +14,18 @@ export default function HomePage() {
 
   useEffect(() => {
     const run = async () => {
-      const { data, error } = await supabase.auth.getUser()
+      const { data } = await supabase.auth.getUser()
       if (data?.user) {
         setUserEmail(data.user.email ?? null)
         setUserId(data.user.id)
 
-        // Récupération du prénom/nom
-        const { data: emp, error: empErr } = await supabase
+        const { data: emp } = await supabase
           .from('employees')
           .select('first_name, last_name')
           .eq('user_id', data.user.id)
           .maybeSingle()
 
-        if (emp && emp.first_name && emp.last_name) {
+        if (emp?.first_name && emp?.last_name) {
           setFullName(`${emp.first_name} ${emp.last_name}`)
         }
       }
@@ -35,18 +34,27 @@ export default function HomePage() {
   }, [])
 
   return (
-    <main className="min-h-screen flex items-center justify-center text-center px-4">
-      <div className="max-w-xl">
+    <main className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div className="text-center max-w-lg space-y-4">
         {userEmail && userId && fullName ? (
           <>
-            <h1 className="text-2xl font-semibold mb-2">Bonjour {fullName} 👋</h1>
-            <p className="text-gray-700">Bienvenue dans l'espace Synergies.</p>
+            <h1 className="text-3xl font-bold">Bonjour {fullName} 👋</h1>
+            <p className="text-gray-700 text-lg">
+              Bienvenue dans l'espace Synergies.
+            </p>
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-semibold mb-2">Bienvenue dans l'espace Synergies.</h1>
-            <p className="mb-2">Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.</p>
-            <a href="/login" className="text-blue-600 underline">Se connecter</a>
+            <h1 className="text-3xl font-bold">Bienvenue dans l'espace Synergies.</h1>
+            <p className="text-gray-700 text-lg">
+              Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel, ou pour activer ton compte si c'est ta première connexion.
+            </p>
+            <a
+              href="/login"
+              className="inline-block mt-2 px-5 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition"
+            >
+              Se connecter
+            </a>
           </>
         )}
       </div>
