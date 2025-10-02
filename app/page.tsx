@@ -8,29 +8,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-type Employee = {
-  first_name: string | null
-  last_name: string | null
-  email: string
-}
-
 export default function HomePage() {
-  const [employee, setEmployee] = useState<Employee | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData?.user?.id) return
-
-      const { data: emp, error } = await supabase
-        .from('employees')
-        .select('first_name, last_name, email')
-        .eq('user_id', userData.user.id)
-        .maybeSingle()
-
-      if (emp) setEmployee(emp)
+      const { data } = await supabase.auth.getUser()
+      if (data?.user?.email) {
+        setUserEmail(data.user.email)
+      }
     }
-
     fetchData()
   }, [])
 
@@ -46,7 +33,7 @@ export default function HomePage() {
         Bienvenue dans l’espace <b>Synergies</b>.
       </h1>
 
-      {!employee && (
+      {!userEmail && (
         <>
           <p>
             Clique sur <b>se connecter</b> pour accéder à ton espace personnel,
@@ -63,18 +50,20 @@ export default function HomePage() {
               color: 'white',
               borderRadius: 8,
               textDecoration: 'none',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              transition: 'background 0.2s ease'
             }}
+            onMouseOver={e => (e.currentTarget.style.backgroundColor = '#1e40af')}
+            onMouseOut={e => (e.currentTarget.style.backgroundColor = '#2563eb')}
           >
             Se connecter
           </Link>
         </>
       )}
 
-      {employee && (
-        <p style={{ marginTop: 12, fontSize: 18 }}>
-          Bonjour <b>{employee.first_name} {employee.last_name}</b> 👋<br />
-          Ravi de te revoir sur l’espace Synergies.
+      {userEmail && (
+        <p>
+          Connecté en tant que <b>{userEmail}</b>
         </p>
       )}
     </main>
