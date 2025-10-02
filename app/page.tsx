@@ -13,36 +13,36 @@ export default function HomePage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const getUser = async () => {
+    const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser()
       if (data?.user) {
-        setUserEmail(data.user.email ?? null)
-        setUserId(data.user.id ?? null)
+        setUserEmail(data.user.email)
+        setUserId(data.user.id)
       }
     }
-    getUser()
+    fetchUser()
   }, [])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div className="max-w-xl w-full text-center space-y-4">
-        <h1 className="text-3xl font-semibold">Bienvenue dans l'espace Synergies.</h1>
+    <main className="min-h-screen flex items-center justify-center px-4">
+      <div className="max-w-xl text-center">
+        <h1 className="text-2xl font-bold mb-4">Bienvenue dans l'espace Synergies.</h1>
 
-        <p>
-          <span className="font-bold">email :</span> {userEmail ?? '—'}
+        <p className="mb-2">
+          <strong>email :</strong> {userEmail ?? '–'}
         </p>
-        <p>
-          <span className="font-bold">user.id :</span> {userId ?? '—'}
+        <p className="mb-4">
+          <strong>user.id :</strong> {userId ?? '–'}
         </p>
 
-        <p>
-          Clique sur <span className="font-semibold">se connecter</span> pour accéder à ton espace personnel,
+        <p className="mb-4">
+          Clique sur <strong>se connecter</strong> pour accéder à ton espace personnel,
           ou pour activer ton compte si c’est ta première connexion.
         </p>
 
         <a
           href="/login"
-          className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+          className="inline-block px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
         >
           Se connecter
         </a>
