@@ -47,43 +47,45 @@ export default function SentRecommendationsPage() {
   if (loading) return <p className="p-4">Chargement...</p>
 
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-semibold mb-4">Mes recommandations envoyées</h1>
+    <div className="max-w-7xl mx-auto px-6 py-10">
+      <h1 className="text-2xl font-semibold mb-6">Mes recommandations envoyées</h1>
 
-      <table className="min-w-full bg-white border border-gray-300 shadow-md rounded-md">
-        <thead className="bg-gray-100 text-sm text-gray-700">
-          <tr>
-            <th className="px-4 py-2 text-left">Date</th>
-            <th className="px-4 py-2 text-left">Client</th>
-            <th className="px-4 py-2 text-left">Projet</th>
-            <th className="px-4 py-2 text-left">Prise en charge</th>
-            <th className="px-4 py-2 text-left">Avancement</th>
-            <th className="px-4 py-2 text-left">Montant (€)</th>
-            <th className="px-4 py-2 text-left">Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recos.length === 0 ? (
+      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-100 text-gray-700">
             <tr>
-              <td colSpan={7} className="px-4 py-4 text-center text-gray-500">
-                Aucune recommandation envoyée pour le moment.
-              </td>
+              <th className="px-4 py-3 text-left">Date</th>
+              <th className="px-4 py-3 text-left">Client</th>
+              <th className="px-4 py-3 text-left">Projet</th>
+              <th className="px-4 py-3 text-left">Prise en charge</th>
+              <th className="px-4 py-3 text-left">Avancement</th>
+              <th className="px-4 py-3 text-left">Montant (€)</th>
+              <th className="px-4 py-3 text-left">Statut</th>
             </tr>
-          ) : (
-            recos.map((reco) => (
-              <tr key={reco.id} className="border-t text-sm">
-                <td className="px-4 py-2">{new Date(reco.created_at).toLocaleDateString()}</td>
-                <td className="px-4 py-2">{reco.client_name}</td>
-                <td className="px-4 py-2">{reco.project_type}</td>
-                <td className="px-4 py-2">{reco.prise_en_charge}</td>
-                <td className="px-4 py-2">{reco.avancement}</td>
-                <td className="px-4 py-2">{reco.montant ?? '—'}</td>
-                <td className="px-4 py-2">{reco.statut ?? '—'}</td>
+          </thead>
+          <tbody>
+            {recos.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                  Aucune recommandation envoyée.
+                </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              recos.map((reco) => (
+                <tr key={reco.id} className="border-t hover:bg-gray-50">
+                  <td className="px-4 py-2">{new Date(reco.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-2">{reco.client_name}</td>
+                  <td className="px-4 py-2">{reco.project_type}</td>
+                  <td className="px-4 py-2">{reco.prise_en_charge}</td>
+                  <td className="px-4 py-2">{reco.avancement}</td>
+                  <td className="px-4 py-2">{reco.montant ?? '—'}</td>
+                  <td className="px-4 py-2">{reco.statut ?? '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
