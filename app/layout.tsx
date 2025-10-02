@@ -1,9 +1,9 @@
 // app/layout.tsx
 import './globals.css'
-import type { Metadata } from 'next'
 import Link from 'next/link'
+import './globals.css'
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'Synergies App',
   description: 'Plateforme interne de recommandations',
 }
@@ -11,27 +11,20 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="bg-gradient-to-br from-gray-50 to-gray-200 text-gray-900 min-h-screen font-sans">
-        {/* Barre de navigation */}
-        <header className="bg-gray-900 text-white px-6 py-4 shadow">
-          <nav className="flex items-center justify-between max-w-6xl mx-auto">
-            <div className="flex space-x-6 text-sm font-medium">
-              <Link href="/" className="hover:underline">🎯 Synergies</Link>
-              <Link href="/inbox" className="hover:underline">Mes reçues</Link>
-              <Link href="/outbox" className="hover:underline">Mes envoyées</Link>
-              <Link href="/kanban" className="hover:underline">Kanban</Link>
-              <Link href="/reco/new" className="hover:underline">Nouvelle reco</Link>
+      <body>
+        <header style={{ backgroundColor: '#0f172a', padding: '12px 24px' }}>
+          <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white' }}>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
+              <Link href="/" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>🎯 Synergies</Link>
+              <Link href="/inbox" style={{ color: 'white', textDecoration: 'none' }}>Mes reçues</Link>
+              <Link href="/sent" style={{ color: 'white', textDecoration: 'none' }}>Mes envoyées</Link>
+              <Link href="/kanban" style={{ color: 'white', textDecoration: 'none' }}>Kanban</Link>
+              <Link href="/reco/new" style={{ color: 'white', textDecoration: 'none' }}>Nouvelle reco</Link>
             </div>
-            <div>
-              <Link href="/login" className="hover:underline text-sm">Se connecter / Mon compte</Link>
-            </div>
+            <Link href="/login" style={{ color: 'white', textDecoration: 'none', fontSize: '14px' }}>Se connecter / Mon compte</Link>
           </nav>
         </header>
-
-        {/* Contenu de la page */}
-        <main className="px-4 py-10">
-          {children}
-        </main>
+        <main>{children}</main>
       </body>
     </html>
   )
