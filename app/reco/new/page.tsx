@@ -1,6 +1,5 @@
 'use client'
-
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -17,6 +16,7 @@ type Employee = {
 }
 
 export default function NewRecoPage() {
+  // Champs du formulaire
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -25,118 +25,130 @@ export default function NewRecoPage() {
   const [projectAddress, setProjectAddress] = useState('')
   const [receiverId, setReceiverId] = useState('')
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [sending, setSending] = useState(false)
-  const [done, setDone] = useState(false)
 
-  const [meId, setMeId] = useState('')
-  const [meName, setMeName] = useState('')
-  const [meEmail, setMeEmail] = useState('')
-
+  // Chargement des employés depuis Supabase
   useEffect(() => {
-    const run = async () => {
-      const { data: u } = await supabase.auth.getUser()
-      if (!u?.user) return
-      const { data: me } = await supabase
+    const loadEmployees = async () => {
+      const { data, error } = await supabase
         .from('employees')
-        .select('*')
-        .eq('user_id', u.user.id)
-        .maybeSingle()
-      if (me) {
-        setMeId(me.id)
-        setMeName(`${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
-        setMeEmail(me.email)
+        .select('id, first_name, last_name, email, is_active')
+        .eq('is_active', true)
+
+      if (error) {
+        console.error('Erreur chargement employés', error.message)
+      } else {
+        setEmployees(data ?? [])
       }
     }
-    run()
+    loadEmployees()
   }, [])
 
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('employees')
-        .select('*')
-        .neq('id', meId)
-        .eq('is_active', true)
-        .order('last_name', { ascending: true })
-      if (data) setEmployees(data)
+  // Envoi du formulaire
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!receiverId) {
+      alert('Merci de sélectionner un destinataire.')
+      return
     }
-    if (meId) load()
-  }, [meId])
 
-  const receiver = useMemo(() => employees.find(e => e.id === receiverId), [receiverId, employees])
+    // Récupération de l’utilisateur connecté
+    const { data: userData } = await supabase.auth.getUser()
+    const user = userData?.user
 
-  const send = async () => {
-    if (!clientName || !projectTitle || !receiverId) return
-    setSending(true)
+    if (!user) {
+      alert('Utilisateur non connecté')
+      return
+    }
 
-    const { error, data: reco } = await supabase.from('recommendations').insert({
-      prescriptor_id: meId,
-      prescriptor_name: meName,
-      presriptor_email: meEmail,
+    // Récupération de l'ID de l'employé prescripteur
+    const { data: employeeData } = await supabase
+      .from('employees')
+      .select('id, first_name, last_name')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!employeeData) {
+      alert('Fiche employé introuvable.')
+      return
+    }
+
+    const { id: prescriptor_id, first_name, last_name } = employeeData
+
+    // Création de la recommandation dans Supabase
+    const { error } = await supabase.from('recommendations').insert({
+      prescriptor_id,
+      prescriptor_name: `${first_name ?? ''} ${last_name ?? ''}`.trim(),
+      presriptor_email: user.email,
       receiver_id: receiverId,
-      receiver_email: receiver?.email ?? null,
       client_name: clientName,
-      client_email: clientEmail || null,
-      client_phone: clientPhone || null,
+      client_email: clientEmail,
+      client_phone: clientPhone,
       project_title: projectTitle,
-      project_details: projectDetails || null,
-      project_address: projectAddress || null,
-    }).select().maybeSingle()
+      project_details: projectDetails,
+      project_address: projectAddress,
+    })
 
-    if (reco?.id && receiver?.email) {
+    if (error) {
+      alert('Erreur enregistrement : ' + error.message)
+      return
+    }
+
+    // Envoi d'email via API interne
+    const receiver = employees.find(e => e.id === receiverId)
+    if (receiver) {
       await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: receiver.email,
-          subject: `Nouvelle recommandation de ${meName}`,
-          html: `<p>Bonjour ${receiver.first_name ?? ''},</p>
-                 <p>Tu as reçu une nouvelle recommandation de la part de <strong>${meName}</strong>.</p>
-                 <p><strong>Client :</strong> ${clientName}<br/>
-                 <strong>Projet :</strong> ${projectTitle}</p>
-                 <p><a href="https://synergies-app-orpi.vercel.app/inbox">Voir dans l'app</a></p>`
+          subject: '📬 Nouvelle recommandation reçue',
+          html: `
+            <p>Bonjour ${receiver.first_name ?? ''},</p>
+            <p>Tu as reçu une nouvelle recommandation de la part de ${first_name} ${last_name}.</p>
+            <p><strong>Client :</strong> ${clientName}<br/>
+            <strong>Projet :</strong> ${projectTitle}</p>
+            <p><a href="https://synergies-app-orpi.vercel.app/inbox">Voir ma recommandation</a></p>
+          `
         })
       })
     }
 
-    setSending(false)
-    setDone(true)
+    alert('Recommandation envoyée !')
+    // Reset du formulaire
+    setClientName('')
+    setClientEmail('')
+    setClientPhone('')
+    setProjectTitle('')
+    setProjectDetails('')
+    setProjectAddress('')
+    setReceiverId('')
   }
 
-  if (done) return (
-    <main style={{ maxWidth: 600, margin: '48px auto', padding: 24 }}>
-      <h2>✅ Recommandation envoyée !</h2>
-      <p><a href="/inbox">Retour</a></p>
-    </main>
-  )
-
   return (
-    <main style={{ maxWidth: 600, margin: '48px auto', padding: 24 }}>
-      <h1>Nouvelle recommandation</h1>
+    <main style={{ maxWidth: 500, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+      <h2>Nouvelle recommandation</h2>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <input placeholder="Nom du client" value={clientName} onChange={e => setClientName(e.target.value)} />
+        <input placeholder="Email du client" value={clientEmail} onChange={e => setClientEmail(e.target.value)} />
+        <input placeholder="Tél du client" value={clientPhone} onChange={e => setClientPhone(e.target.value)} />
+        <input placeholder="Projet / besoin" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
+        <textarea placeholder="Détails / précisions (optionnel)" value={projectDetails} onChange={e => setProjectDetails(e.target.value)} />
+        <input placeholder="Adresse du projet (optionnel)" value={projectAddress} onChange={e => setProjectAddress(e.target.value)} />
 
-      <div style={{ display:'flex', flexDirection:'column', gap:16, marginTop: 32 }}>
-        <input placeholder="Nom du client" value={clientName} onChange={e=>setClientName(e.target.value)} />
-        <input placeholder="Email du client" value={clientEmail} onChange={e=>setClientEmail(e.target.value)} />
-        <input placeholder="Tél du client" value={clientPhone} onChange={e=>setClientPhone(e.target.value)} />
-
-        <input placeholder="Projet / besoin" value={projectTitle} onChange={e=>setProjectTitle(e.target.value)} />
-        <textarea placeholder="Détails / précisions (optionnel)" value={projectDetails} onChange={e=>setProjectDetails(e.target.value)} />
-        <input placeholder="Adresse du projet (optionnel)" value={projectAddress} onChange={e=>setProjectAddress(e.target.value)} />
-
-        <select value={receiverId} onChange={e => setReceiverId(e.target.value)}>
-          <option value="">Destinataire</option>
+        <label>Destinataire</label>
+        <select value={receiverId} onChange={e => setReceiverId(e.target.value)} required>
+          <option value="">-- Sélectionner --</option>
           {employees.map(e => (
-            <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
+            <option key={e.id} value={e.id}>
+              {e.first_name} {e.last_name}
+            </option>
           ))}
         </select>
 
-        <button
-          onClick={send}
-          disabled={!clientName || !projectTitle || !receiverId || sending}
-          style={{ padding: '12px 16px', background: '#334155', color: 'white', border: 'none', borderRadius: 6 }}>
-          {sending ? 'Envoi…' : 'Envoyer'}
+        <button type="submit" style={{ background: '#334155', color: 'white', padding: 12, borderRadius: 6 }}>
+          Envoyer
         </button>
-      </div>
+      </form>
     </main>
   )
 }
