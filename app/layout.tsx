@@ -1,7 +1,6 @@
-// app/layout.tsx
 import './globals.css'
 import Link from 'next/link'
-import './globals.css'
+import AdminLink from './_components/AdminLink' // ✅ ajoute ceci
 
 export const metadata = {
   title: 'Synergies App',
@@ -20,6 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/sent" style={{ color: 'white', textDecoration: 'none' }}>Mes envoyées</Link>
               <Link href="/kanban" style={{ color: 'white', textDecoration: 'none' }}>Kanban</Link>
               <Link href="/reco/new" style={{ color: 'white', textDecoration: 'none' }}>Nouvelle reco</Link>
+
+              {/* ✅ Ajoute ceci ici */}
+              <AdminLink />
             </div>
             <Link href="/login" style={{ color: 'white', textDecoration: 'none', fontSize: '14px' }}>Se connecter / Mon compte</Link>
           </nav>
