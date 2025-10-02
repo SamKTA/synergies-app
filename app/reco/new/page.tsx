@@ -17,7 +17,6 @@ type Employee = {
 }
 
 export default function NewRecoPage() {
-  // Champs formulaire
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -29,10 +28,9 @@ export default function NewRecoPage() {
   const [sending, setSending] = useState(false)
   const [done, setDone] = useState(false)
 
-  // Moi = employé connecté
-  const [meId, setMeId] = useState<string>('')
-  const [meName, setMeName] = useState<string>('')
-  const [meEmail, setMeEmail] = useState<string>('')
+  const [meId, setMeId] = useState('')
+  const [meName, setMeName] = useState('')
+  const [meEmail, setMeEmail] = useState('')
 
   useEffect(() => {
     const run = async () => {
@@ -52,10 +50,14 @@ export default function NewRecoPage() {
     run()
   }, [])
 
-  // Receveurs possibles = tout le monde sauf moi
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('employees').select('*').neq('id', meId)
+      const { data } = await supabase
+        .from('employees')
+        .select('*')
+        .neq('id', meId)
+        .eq('is_active', true)
+        .order('last_name', { ascending: true })
       if (data) setEmployees(data)
     }
     if (meId) load()
@@ -67,7 +69,6 @@ export default function NewRecoPage() {
     if (!clientName || !projectTitle || !receiverId) return
     setSending(true)
 
-    // Enregistrer la reco dans Supabase
     const { error, data: reco } = await supabase.from('recommendations').insert({
       prescriptor_id: meId,
       prescriptor_name: meName,
@@ -82,7 +83,6 @@ export default function NewRecoPage() {
       project_address: projectAddress || null,
     }).select().maybeSingle()
 
-    // Envoyer un e-mail au destinataire
     if (reco?.id && receiver?.email) {
       await fetch('/api/send-email', {
         method: 'POST',
