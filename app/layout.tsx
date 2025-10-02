@@ -1,6 +1,6 @@
 import './globals.css'
 import Link from 'next/link'
-import AdminLink from './_components/AdminLink' // ✅ ajoute ceci
+import AdminLink from './_components/AdminLink'
 
 export const metadata = {
   title: 'Synergies App',
@@ -12,22 +12,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body>
         <header style={{ backgroundColor: '#0f172a', padding: '12px 24px' }}>
-          <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white' }}>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
-              <Link href="/" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>🎯 Synergies</Link>
-              <Link href="/inbox" style={{ color: 'white', textDecoration: 'none' }}>Mes reçues</Link>
-              <Link href="/sent" style={{ color: 'white', textDecoration: 'none' }}>Mes envoyées</Link>
-              <Link href="/kanban" style={{ color: 'white', textDecoration: 'none' }}>Kanban</Link>
-              <Link href="/reco/new" style={{ color: 'white', textDecoration: 'none' }}>Nouvelle reco</Link>
-
-              {/* ✅ Ajoute ceci ici */}
-              <AdminLink />
+          <nav
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: 'white',
+              fontSize: '15px',
+              fontWeight: 600,
+            }}
+          >
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+              <Link href="/" style={linkStyle}>🎯 Synergies</Link>
+              <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
+              <Link href="/sent" style={linkStyle}>Mes envoyées</Link>
+              <Link href="/kanban" style={linkStyle}>Kanban</Link>
+              <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
+              <AdminLink /> {/* ✅ Le lien Commissions s'insère naturellement ici */}
             </div>
-            <Link href="/login" style={{ color: 'white', textDecoration: 'none', fontSize: '14px' }}>Se connecter / Mon compte</Link>
+            <Link href="/login" style={{ ...linkStyle, fontWeight: 500, opacity: 0.9 }}>
+              Se connecter / Mon compte
+            </Link>
           </nav>
         </header>
         <main>{children}</main>
       </body>
     </html>
   )
+}
+
+const linkStyle: React.CSSProperties = {
+  color: 'white',
+  textDecoration: 'none',
+  padding: '6px 10px',
+  borderRadius: 6,
 }
