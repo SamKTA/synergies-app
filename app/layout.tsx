@@ -26,7 +26,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/" style={linkStyle}>🎯 Synergies</Link>
               <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
               <Link href="/sent" style={linkStyle}>Mes envoyées</Link>
-              <Link href="/kanban" style={linkStyle}>Kanban</Link>
               <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
               <AdminLink /> {/* ✅ Le lien Commissions s'insère naturellement ici */}
             </div>
