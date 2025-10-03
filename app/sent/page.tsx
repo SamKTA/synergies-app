@@ -17,7 +17,7 @@ type Row = {
   amount: number | null
   prescriptor_id: string | null
   receiver_email: string | null
-  is_commissionable: boolean | null
+  is_paid: boolean
 }
 
 export default function SentPage() {
@@ -44,14 +44,27 @@ export default function SentPage() {
       setMeId(me.id)
       setMeName(`${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
 
-      const { data, error } = await supabase
+      const { data: recos, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email, is_commissionable')
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email')
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
-      if (error) { setErr(error.message); setLoading(false); return }
-      setRows(data ?? [])
+      if (error || !recos) { setErr(error?.message ?? 'Erreur recos'); setLoading(false); return }
+
+      const { data: commissions, error: errC } = await supabase
+        .from('commissions')
+        .select('recommendation_id')
+
+      if (errC || !commissions) {
+        setErr(errC?.message ?? 'Erreur commissions');
+        setLoading(false);
+        return
+      }
+
+      const paidIds = new Set(commissions.map(c => c.recommendation_id))
+      const rowsWithStatus = recos.map(r => ({ ...r, is_paid: paidIds.has(r.id) }))
+      setRows(rowsWithStatus)
       setLoading(false)
     }
     run()
@@ -141,9 +154,7 @@ export default function SentPage() {
                 <td style={{ padding:8 }}>{r.deal_stage ?? '—'}</td>
                 <td style={{ padding:8, textAlign:'right' }}>{r.amount ?? '—'}</td>
                 <td style={{ padding:8 }}>{r.receiver_email ?? '—'}</td>
-                <td style={{ padding:8, textAlign:'center' }}>
-                  {r.is_commissionable ? '✅' : '—'}
-                </td>
+                <td style={{ padding:8, textAlign:'center' }}>{r.is_paid ? '✅' : '—'}</td>
                 <td style={{ padding:8 }}>
                   {r.receiver_email && (
                     <button
