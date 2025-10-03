@@ -22,10 +22,6 @@ type Row = {
     last_name: string | null
     email: string
   }
-  prescriptor?: {
-    first_name: string | null
-    last_name: string | null
-  }
 }
 
 export default function SentPage() {
@@ -62,7 +58,14 @@ export default function SentPage() {
         .order('created_at', { ascending: false })
 
       if (error) { setErr(error.message); setLoading(false); return }
-      setRows(data ?? [])
+
+      // ✅ normaliser receiver
+      const normalized = (data ?? []).map((r: any) => ({
+        ...r,
+        receiver: Array.isArray(r.receiver) ? r.receiver[0] : r.receiver
+      }))
+
+      setRows(normalized)
       setLoading(false)
     }
     run()
