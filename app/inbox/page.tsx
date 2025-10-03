@@ -98,112 +98,120 @@ export default function InboxPage() {
   }
 
   return (
-    <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
-      <h1>Mes recommandations reçues</h1>
+  <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+    <h1>Mes recommandations reçues</h1>
 
-      <div style={{ display:'flex', flexWrap:'wrap', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
-        <input
-          placeholder="Recherche (client, projet, statut)"
-          value={q}
-          onChange={e=>setQ(e.target.value)}
-          style={{ padding:10, flex:1, minWidth: 200 }}
-        />
+    <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
+      <input
+        placeholder="Recherche (client, projet, statut)"
+        value={q}
+        onChange={e=>setQ(e.target.value)}
+        style={{ padding:10, flex:1 }}
+      />
+      <a href="/reco/new" style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
+        + Nouvelle reco
+      </a>
+    </div>
 
-        <select
-          value={intakeFilter}
-          onChange={e => setIntakeFilter(e.target.value)}
-          style={{ padding:10, minWidth: 180 }}
-        >
-          <option value="">— Filtrer prise en charge —</option>
-          {INTAKE.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-
-        <select
-          value={dealFilter}
-          onChange={e => setDealFilter(e.target.value)}
-          style={{ padding:10, minWidth: 180 }}
-        >
-          <option value="">— Filtrer avancement —</option>
-          {DEAL.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-
-        <button onClick={resetFilters} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
-          Réinitialiser
-        </button>
-
-        <a href="/reco/new" style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
-          + Nouvelle reco
-        </a>
+    <div style={{ display:'flex', gap:40, marginBottom:20 }}>
+      <div>
+        <div style={{ fontWeight:'bold', marginBottom:8 }}>📌 Prise en charge :</div>
+        {INTAKE.map(status => (
+          <label key={status} style={{ display:'block', marginBottom:4 }}>
+            <input
+              type="checkbox"
+              checked={selectedIntake.includes(status)}
+              onChange={() => toggleIntake(status)}
+              style={{ marginRight:6 }}
+            />
+            {status}
+          </label>
+        ))}
       </div>
 
-      {loading && <p>Chargement…</p>}
-      {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
+      <div>
+        <div style={{ fontWeight:'bold', marginBottom:8 }}>🚧 Avancement :</div>
+        {DEAL.map(stage => (
+          <label key={stage} style={{ display:'block', marginBottom:4 }}>
+            <input
+              type="checkbox"
+              checked={selectedDeal.includes(stage)}
+              onChange={() => toggleDeal(stage)}
+              style={{ marginRight:6 }}
+            />
+            {stage}
+          </label>
+        ))}
+      </div>
+    </div>
 
-      {!loading && !err && (
-        <table style={{ width:'100%', borderCollapse:'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Date</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Client</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Projet</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Prise en charge</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
-              <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Notes</th>
+    {loading && <p>Chargement…</p>}
+    {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
+
+    {!loading && !err && (
+      <table style={{ width:'100%', borderCollapse:'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Date</th>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Client</th>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Projet</th>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Prise en charge</th>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
+            <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
+            <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map(r => (
+            <tr key={r.id}>
+              <td style={{ padding:8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+              <td style={{ padding:8 }}>{r.client_name}</td>
+              <td style={{ padding:8 }}>{r.project_title ?? '—'}</td>
+              <td style={{ padding:8 }}>
+                <select
+                  value={r.intake_status}
+                  onChange={e => updateRow(r.id, { intake_status: e.target.value })}
+                  style={{ padding:6 }}
+                >
+                  {INTAKE.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </td>
+              <td style={{ padding:8 }}>
+                <select
+                  value={r.deal_stage}
+                  onChange={e => updateRow(r.id, { deal_stage: e.target.value })}
+                  style={{ padding:6 }}
+                >
+                  {DEAL.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </td>
+              <td style={{ padding:8, textAlign:'right' }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={r.amount ?? ''}
+                  placeholder="—"
+                  onChange={e => updateRow(r.id, { amount: e.target.value === '' ? null : Number(e.target.value) })}
+                  style={{ width:120, padding:6, textAlign:'right' }}
+                />
+              </td>
+              <td style={{ padding:8 }}>
+                {savingId === r.id ? '💾 Sauvegarde…' : '—'}
+              </td>
+              <td style={{ padding:8 }}>
+                <textarea
+                  value={r.notes ?? ''}
+                  onChange={e => updateRow(r.id, { notes: e.target.value })}
+                  placeholder="Ajouter une note…"
+                  rows={2}
+                  style={{ width: '100%', padding: 6, resize: 'vertical' }}
+                />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {filtered.map(r => (
-              <tr key={r.id}>
-                <td style={{ padding:8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
-                <td style={{ padding:8 }}>{r.client_name}</td>
-                <td style={{ padding:8 }}>{r.project_title ?? '—'}</td>
-                <td style={{ padding:8 }}>
-                  <select
-                    value={r.intake_status}
-                    onChange={e => updateRow(r.id, { intake_status: e.target.value })}
-                    style={{ padding:6 }}
-                  >
-                    {INTAKE.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td style={{ padding:8 }}>
-                  <select
-                    value={r.deal_stage}
-                    onChange={e => updateRow(r.id, { deal_stage: e.target.value })}
-                    style={{ padding:6 }}
-                  >
-                    {DEAL.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td style={{ padding:8, textAlign:'right' }}>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={r.amount ?? ''}
-                    placeholder="—"
-                    onChange={e => updateRow(r.id, { amount: e.target.value === '' ? null : Number(e.target.value) })}
-                    style={{ width:120, padding:6, textAlign:'right' }}
-                  />
-                </td>
-                <td style={{ padding:8 }}>
-                  {savingId === r.id ? '💾 Sauvegarde…' : '—'}
-                </td>
-                <td style={{ padding:8 }}>
-                  <textarea
-                    value={r.notes ?? ''}
-                    onChange={e => updateRow(r.id, { notes: e.target.value })}
-                    placeholder="Ajouter une note…"
-                    rows={2}
-                    style={{ width: '100%', padding: 6, resize: 'vertical' }}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </main>
-  )
-}
+          ))}
+        </tbody>
+      </table>
+    )}
+  </main>
+)
