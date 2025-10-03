@@ -17,7 +17,7 @@ type Row = {
   amount: number | null
   prescriptor_id: string | null
   receiver_email: string | null
-  commissions: { id: string }[] // ← jointure
+  commissions: { id: string }[]
 }
 
 export default function SentPage() {
@@ -46,15 +46,19 @@ export default function SentPage() {
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select(`
-          id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email,
-          commissions(id)
-        `)
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email, commissions(id)')
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
       if (error) { setErr(error.message); setLoading(false); return }
-      setRows(data ?? [])
+
+      setRows(
+        (data ?? []).map(r => ({
+          ...r,
+          commissions: Array.isArray(r.commissions) ? r.commissions : []
+        }))
+      )
+
       setLoading(false)
     }
     run()
@@ -130,7 +134,7 @@ export default function SentPage() {
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
               <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Receveur</th>
-              <th style={{ textAlign:'center', borderBottom:'1px solid #ddd', padding:8 }}>Payée</th>
+              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Payée ?</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Actions</th>
             </tr>
           </thead>
@@ -144,9 +148,7 @@ export default function SentPage() {
                 <td style={{ padding:8 }}>{r.deal_stage ?? '—'}</td>
                 <td style={{ padding:8, textAlign:'right' }}>{r.amount ?? '—'}</td>
                 <td style={{ padding:8 }}>{r.receiver_email ?? '—'}</td>
-                <td style={{ padding:8, textAlign:'center' }}>
-                  {r.commissions.length > 0 ? '✅ Oui' : '—'}
-                </td>
+                <td style={{ padding:8 }}>{r.commissions.length > 0 ? '✅ Oui' : '—'}</td>
                 <td style={{ padding:8 }}>
                   {r.receiver_email && (
                     <button
