@@ -16,7 +16,7 @@ type Row = {
   deal_stage: string
   amount: number | null
   receiver_id: string | null
-  notes?: string | null
+  notes: string | null
 }
 
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
@@ -29,11 +29,12 @@ export default function InboxPage() {
   const [meId, setMeId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [intakeFilter, setIntakeFilter] = useState('')
+  const [dealFilter, setDealFilter] = useState('')
 
   useEffect(() => {
     const run = async () => {
       setLoading(true); setErr(null)
-
       const { data: u, error: ue } = await supabase.auth.getUser()
       if (ue) { setErr(ue.message); setLoading(false); return }
       if (!u?.user) { setErr('Connecte-toi.'); setLoading(false); return }
@@ -59,15 +60,18 @@ export default function InboxPage() {
   }, [])
 
   const filtered = useMemo(() => {
-    if (!q) return rows
     const s = q.toLowerCase()
     return rows.filter(r =>
-      (r.client_name ?? '').toLowerCase().includes(s) ||
-      (r.project_title ?? '').toLowerCase().includes(s) ||
-      (r.intake_status ?? '').toLowerCase().includes(s) ||
-      (r.deal_stage ?? '').toLowerCase().includes(s)
+      (!q ||
+        (r.client_name ?? '').toLowerCase().includes(s) ||
+        (r.project_title ?? '').toLowerCase().includes(s) ||
+        (r.intake_status ?? '').toLowerCase().includes(s) ||
+        (r.deal_stage ?? '').toLowerCase().includes(s)
+      ) &&
+      (!intakeFilter || r.intake_status === intakeFilter) &&
+      (!dealFilter || r.deal_stage === dealFilter)
     )
-  }, [rows, q])
+  }, [rows, q, intakeFilter, dealFilter])
 
   const updateRow = async (id: string, patch: Partial<Row>) => {
     setSavingId(id)
@@ -87,17 +91,46 @@ export default function InboxPage() {
     }
   }
 
+  const resetFilters = () => {
+    setQ('')
+    setIntakeFilter('')
+    setDealFilter('')
+  }
+
   return (
     <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Mes recommandations reçues</h1>
 
-      <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
         <input
           placeholder="Recherche (client, projet, statut)"
           value={q}
           onChange={e=>setQ(e.target.value)}
-          style={{ padding:10, flex:1 }}
+          style={{ padding:10, flex:1, minWidth: 200 }}
         />
+
+        <select
+          value={intakeFilter}
+          onChange={e => setIntakeFilter(e.target.value)}
+          style={{ padding:10, minWidth: 180 }}
+        >
+          <option value="">— Filtrer prise en charge —</option>
+          {INTAKE.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select
+          value={dealFilter}
+          onChange={e => setDealFilter(e.target.value)}
+          style={{ padding:10, minWidth: 180 }}
+        >
+          <option value="">— Filtrer avancement —</option>
+          {DEAL.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <button onClick={resetFilters} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
+          Réinitialiser
+        </button>
+
         <a href="/reco/new" style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
           + Nouvelle reco
         </a>
