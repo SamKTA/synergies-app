@@ -16,6 +16,7 @@ type Row = {
   deal_stage: string
   amount: number | null
   receiver_id: string | null
+  notes?: string | null
 }
 
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
@@ -27,20 +28,16 @@ export default function InboxPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [meId, setMeId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
-
-  // filtre rapide
   const [q, setQ] = useState('')
 
   useEffect(() => {
     const run = async () => {
       setLoading(true); setErr(null)
 
-      // qui est connecté ?
       const { data: u, error: ue } = await supabase.auth.getUser()
       if (ue) { setErr(ue.message); setLoading(false); return }
       if (!u?.user) { setErr('Connecte-toi.'); setLoading(false); return }
 
-      // récupérer mon employee.id
       const { data: me, error: meErr } = await supabase
         .from('employees')
         .select('id')
@@ -49,10 +46,9 @@ export default function InboxPage() {
       if (meErr || !me) { setErr(meErr?.message ?? 'Pas de fiche employé.'); setLoading(false); return }
       setMeId(me.id)
 
-      // charger mes recos reçues
       const { data, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id')
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id, notes')
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
       if (error) { setErr(error.message); setLoading(false); return }
@@ -77,7 +73,7 @@ export default function InboxPage() {
     setSavingId(id)
     const prev = rows
     const next = rows.map(r => r.id === id ? { ...r, ...patch } : r)
-    setRows(next) // optimiste
+    setRows(next)
 
     const { error } = await supabase
       .from('recommendations')
@@ -87,7 +83,7 @@ export default function InboxPage() {
     setSavingId(null)
     if (error) {
       setErr(`Erreur sauvegarde: ${error.message}`)
-      setRows(prev) // rollback
+      setRows(prev)
     }
   }
 
@@ -121,6 +117,7 @@ export default function InboxPage() {
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
               <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
+              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -159,6 +156,15 @@ export default function InboxPage() {
                 </td>
                 <td style={{ padding:8 }}>
                   {savingId === r.id ? '💾 Sauvegarde…' : '—'}
+                </td>
+                <td style={{ padding:8 }}>
+                  <textarea
+                    value={r.notes ?? ''}
+                    onChange={e => updateRow(r.id, { notes: e.target.value })}
+                    placeholder="Ajouter une note…"
+                    rows={2}
+                    style={{ width: '100%', padding: 6, resize: 'vertical' }}
+                  />
                 </td>
               </tr>
             ))}
