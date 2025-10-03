@@ -44,26 +44,21 @@ export default function SentPage() {
       setMeId(me.id)
       setMeName(`${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
 
-      const { data, error } = await supabase
+      const { data: recos, error: recosErr } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email')
+        .select(`
+          id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email,
+          commissions(status)
+        `)
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
-      if (error) { setErr(error.message); setLoading(false); return }
+      if (recosErr) { setErr(recosErr.message); setLoading(false); return }
 
-      const recos = data ?? []
-
-      const recoIds = recos.map(r => r.id)
-      const { data: paidList, error: paidErr } = await supabase
-        .from('commissions')
-        .select('reco_id')
-        .in('reco_id', recoIds)
-
-      if (paidErr) { setErr(paidErr.message); setLoading(false); return }
-
-      const paidRecoIds = new Set((paidList ?? []).map(p => p.reco_id))
-      const rowsWithPaid = recos.map(r => ({ ...r, is_paid: paidRecoIds.has(r.id) }))
+      const rowsWithPaid = (recos ?? []).map((r: any) => ({
+        ...r,
+        is_paid: (r.commissions ?? []).some((c: any) => c.status === 'paid')
+      }))
 
       setRows(rowsWithPaid)
       setLoading(false)
