@@ -30,9 +30,9 @@ export default function InboxPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [q, setQ] = useState('')
 
-  // filtres multi-sélection
   const [selectedIntake, setSelectedIntake] = useState<string[]>([])
   const [selectedDeal, setSelectedDeal] = useState<string[]>([])
+  const [showFilters, setShowFilters] = useState(false)
 
   const toggleIntake = (val: string) =>
     setSelectedIntake(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
@@ -111,7 +111,6 @@ export default function InboxPage() {
     <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Mes recommandations reçues</h1>
 
-      {/* barre de recherche */}
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
         <input
           placeholder="Recherche (client, projet, statut)"
@@ -122,46 +121,50 @@ export default function InboxPage() {
         <a href="/reco/new" style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
           + Nouvelle reco
         </a>
+        <button onClick={() => setShowFilters(f => !f)} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
+          {showFilters ? 'Cacher les filtres' : 'Afficher les filtres'}
+        </button>
       </div>
 
-      {/* filtres */}
-      <div style={{ display:'flex', gap:40, marginBottom:20 }}>
-        <div>
-          <div style={{ fontWeight:'bold', marginBottom:8 }}>📌 Prise en charge :</div>
-          {INTAKE.map(status => (
-            <label key={status} style={{ display:'block', marginBottom:4 }}>
-              <input
-                type="checkbox"
-                checked={selectedIntake.includes(status)}
-                onChange={() => toggleIntake(status)}
-                style={{ marginRight:6 }}
-              />
-              {status}
-            </label>
-          ))}
-        </div>
+      {showFilters && (
+        <div style={{ display:'flex', gap:40, marginBottom:20, background:'#f9f9f9', padding:12, borderRadius:8 }}>
+          <div>
+            <div style={{ fontWeight:'bold', marginBottom:8 }}>📌 Prise en charge :</div>
+            {INTAKE.map(status => (
+              <label key={status} style={{ display:'block', marginBottom:4 }}>
+                <input
+                  type="checkbox"
+                  checked={selectedIntake.includes(status)}
+                  onChange={() => toggleIntake(status)}
+                  style={{ marginRight:6 }}
+                />
+                {status}
+              </label>
+            ))}
+          </div>
 
-        <div>
-          <div style={{ fontWeight:'bold', marginBottom:8 }}>🚧 Avancement :</div>
-          {DEAL.map(stage => (
-            <label key={stage} style={{ display:'block', marginBottom:4 }}>
-              <input
-                type="checkbox"
-                checked={selectedDeal.includes(stage)}
-                onChange={() => toggleDeal(stage)}
-                style={{ marginRight:6 }}
-              />
-              {stage}
-            </label>
-          ))}
-        </div>
+          <div>
+            <div style={{ fontWeight:'bold', marginBottom:8 }}>🚧 Avancement :</div>
+            {DEAL.map(stage => (
+              <label key={stage} style={{ display:'block', marginBottom:4 }}>
+                <input
+                  type="checkbox"
+                  checked={selectedDeal.includes(stage)}
+                  onChange={() => toggleDeal(stage)}
+                  style={{ marginRight:6 }}
+                />
+                {stage}
+              </label>
+            ))}
+          </div>
 
-        <div style={{ alignSelf:'flex-end' }}>
-          <button onClick={resetFilters} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
-            Réinitialiser filtres
-          </button>
+          <div style={{ alignSelf:'flex-end' }}>
+            <button onClick={resetFilters} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
+              Réinitialiser filtres
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {loading && <p>Chargement…</p>}
       {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
