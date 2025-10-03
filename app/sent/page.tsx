@@ -16,6 +16,16 @@ type Row = {
   deal_stage: string
   amount: number | null
   prescriptor_id: string | null
+  receiver?: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    email: string
+  }
+  prescriptor?: {
+    first_name: string | null
+    last_name: string | null
+  }
 }
 
 export default function SentPage() {
@@ -23,6 +33,7 @@ export default function SentPage() {
   const [err, setErr] = useState<string | null>(null)
   const [rows, setRows] = useState<Row[]>([])
   const [meId, setMeId] = useState<string | null>(null)
+  const [meName, setMeName] = useState<string | null>(null)
   const [q, setQ] = useState('')
 
   useEffect(() => {
@@ -34,15 +45,19 @@ export default function SentPage() {
 
       const { data: me, error: meErr } = await supabase
         .from('employees')
-        .select('id')
+        .select('id, first_name, last_name')
         .eq('user_id', u.user.id)
         .maybeSingle()
       if (meErr || !me) { setErr(meErr?.message ?? 'Pas de fiche employé.'); setLoading(false); return }
       setMeId(me.id)
+      setMeName(`${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id')
+        .select(`
+          id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id,
+          receiver:receiver_id (id, first_name, last_name, email)
+        `)
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
@@ -60,9 +75,42 @@ export default function SentPage() {
       (r.client_name ?? '').toLowerCase().includes(s) ||
       (r.project_title ?? '').toLowerCase().includes(s) ||
       (r.intake_status ?? '').toLowerCase().includes(s) ||
-      (r.deal_stage ?? '').toLowerCase().includes(s)
+      (r.deal_stage ?? '').toLowerCase().includes(s) ||
+      (r.receiver?.first_name ?? '').toLowerCase().includes(s) ||
+      (r.receiver?.last_name ?? '').toLowerCase().includes(s)
     )
   }, [rows, q])
+
+  const sendReminder = async (r: Row) => {
+    if (!r.receiver?.email || !meName) {
+      alert("Impossible d'envoyer la relance (données manquantes).")
+      return
+    }
+
+    const subject = `⏰ Relance : recommandation ${r.client_name}`
+    const html = `
+      <p><strong>${meName}</strong> te relance concernant la recommandation du client <strong>${r.client_name}</strong>.</p>
+      <p>Merci d’indiquer la prise en charge sur l’espace Synergies.</p>
+      <p><a href="https://synergies-app-orpi.vercel.app" target="_blank">👉 Accéder à l’application</a></p>
+    `
+
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: r.receiver.email,
+        subject,
+        html
+      })
+    })
+
+    const json = await res.json()
+    if (!json.ok) {
+      alert(`Erreur envoi : ${json.error}`)
+    } else {
+      alert('Relance envoyée ✅')
+    }
+  }
 
   return (
     <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
@@ -70,7 +118,7 @@ export default function SentPage() {
 
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
         <input
-          placeholder="Recherche (client, projet, statut)"
+          placeholder="Recherche (client, projet, statut, receveur)"
           value={q}
           onChange={e=>setQ(e.target.value)}
           style={{ padding:10, flex:1 }}
@@ -90,7 +138,8 @@ export default function SentPage() {
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Prise en charge</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
               <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
+              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Receveur</th>
+              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -102,7 +151,28 @@ export default function SentPage() {
                 <td style={{ padding:8 }}>{r.intake_status ?? '—'}</td>
                 <td style={{ padding:8 }}>{r.deal_stage ?? '—'}</td>
                 <td style={{ padding:8, textAlign:'right' }}>{r.amount ?? '—'}</td>
-                <td style={{ padding:8 }}>—</td>
+                <td style={{ padding:8 }}>
+                  {r.receiver
+                    ? `${r.receiver.first_name ?? ''} ${r.receiver.last_name ?? ''}`
+                    : '—'}
+                </td>
+                <td style={{ padding:8 }}>
+                  {r.receiver && (
+                    <button
+                      onClick={() => sendReminder(r)}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#2563eb',
+                        color: 'white',
+                        borderRadius: 6,
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Relancer
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
