@@ -30,39 +30,71 @@ export default function SentPage() {
 
   useEffect(() => {
     const run = async () => {
-      setLoading(true); setErr(null)
+      setLoading(true)
+      setErr(null)
 
       const { data: u, error: ue } = await supabase.auth.getUser()
-      if (ue || !u?.user) { setErr('Connecte-toi.'); setLoading(false); return }
+      if (ue || !u?.user) {
+        setErr('Connecte-toi.')
+        setLoading(false)
+        return
+      }
 
       const { data: me, error: meErr } = await supabase
         .from('employees')
         .select('id, first_name, last_name')
         .eq('user_id', u.user.id)
         .maybeSingle()
-      if (meErr || !me) { setErr(meErr?.message ?? 'Pas de fiche employé.'); setLoading(false); return }
+
+      if (meErr || !me) {
+        setErr(meErr?.message ?? 'Pas de fiche employé.')
+        setLoading(false)
+        return
+      }
+
       setMeId(me.id)
       setMeName(`${me.first_name ?? ''} ${me.last_name ?? ''}`.trim())
 
-      const { data: recos, error: recosErr } = await supabase
+      const { data, error } = await supabase
         .from('recommendations')
-        .select(`
-          id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email,
-          commissions(status)
-        `)
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email')
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
-      if (recosErr) { setErr(recosErr.message); setLoading(false); return }
+      if (error) {
+        console.error('Erreur recommendations', error)
+        setErr(error.message)
+        setLoading(false)
+        return
+      }
 
-      const rowsWithPaid = (recos ?? []).map((r: any) => ({
-        ...r,
-        is_paid: (r.commissions ?? []).some((c: any) => c.status === 'paid')
-      }))
+      const recos = data ?? []
+      const recoIds = recos.map(r => r.id)
+
+      const { data: paidList, error: paidErr } = await supabase
+        .from('commissions')
+        .select('reco_id, status')
+        .in('reco_id', recoIds)
+
+      if (paidErr) {
+        console.error('Erreur commissions', paidErr)
+        setErr(paidErr.message)
+        setLoading(false)
+        return
+      }
+
+      const rowsWithPaid = recos.map(r => {
+        const commission = (paidList ?? []).find(p => p.reco_id === r.id)
+        return {
+          ...r,
+          is_paid: commission?.status === 'paid'
+        }
+      })
 
       setRows(rowsWithPaid)
       setLoading(false)
     }
+
     run()
   }, [])
 
