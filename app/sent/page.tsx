@@ -16,12 +16,7 @@ type Row = {
   deal_stage: string
   amount: number | null
   prescriptor_id: string | null
-  receiver?: {
-    id: string
-    first_name: string | null
-    last_name: string | null
-    email: string
-  }
+  receiver_email: string | null
 }
 
 export default function SentPage() {
@@ -50,22 +45,12 @@ export default function SentPage() {
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select(`
-          id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id,
-          receiver:receiver_id (id, first_name, last_name, email)
-        `)
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email')
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
       if (error) { setErr(error.message); setLoading(false); return }
-
-      // ✅ normaliser receiver
-      const normalized = (data ?? []).map((r: any) => ({
-        ...r,
-        receiver: Array.isArray(r.receiver) ? r.receiver[0] : r.receiver
-      }))
-
-      setRows(normalized)
+      setRows(data ?? [])
       setLoading(false)
     }
     run()
@@ -79,13 +64,12 @@ export default function SentPage() {
       (r.project_title ?? '').toLowerCase().includes(s) ||
       (r.intake_status ?? '').toLowerCase().includes(s) ||
       (r.deal_stage ?? '').toLowerCase().includes(s) ||
-      (r.receiver?.first_name ?? '').toLowerCase().includes(s) ||
-      (r.receiver?.last_name ?? '').toLowerCase().includes(s)
+      (r.receiver_email ?? '').toLowerCase().includes(s)
     )
   }, [rows, q])
 
   const sendReminder = async (r: Row) => {
-    if (!r.receiver?.email || !meName) {
+    if (!r.receiver_email || !meName) {
       alert("Impossible d'envoyer la relance (données manquantes).")
       return
     }
@@ -101,7 +85,7 @@ export default function SentPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: r.receiver.email,
+        to: r.receiver_email,
         subject,
         html
       })
@@ -121,7 +105,7 @@ export default function SentPage() {
 
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
         <input
-          placeholder="Recherche (client, projet, statut, receveur)"
+          placeholder="Recherche (client, projet, statut, destinataire)"
           value={q}
           onChange={e=>setQ(e.target.value)}
           style={{ padding:10, flex:1 }}
@@ -154,13 +138,9 @@ export default function SentPage() {
                 <td style={{ padding:8 }}>{r.intake_status ?? '—'}</td>
                 <td style={{ padding:8 }}>{r.deal_stage ?? '—'}</td>
                 <td style={{ padding:8, textAlign:'right' }}>{r.amount ?? '—'}</td>
+                <td style={{ padding:8 }}>{r.receiver_email ?? '—'}</td>
                 <td style={{ padding:8 }}>
-                  {r.receiver
-                    ? `${r.receiver.first_name ?? ''} ${r.receiver.last_name ?? ''}`
-                    : '—'}
-                </td>
-                <td style={{ padding:8 }}>
-                  {r.receiver && (
+                  {r.receiver_email && (
                     <button
                       onClick={() => sendReminder(r)}
                       style={{
