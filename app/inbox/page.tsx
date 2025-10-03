@@ -17,7 +17,6 @@ type Row = {
   amount: number | null
   receiver_id: string | null
   notes: string | null
-  is_paid: boolean | null
 }
 
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
@@ -48,7 +47,7 @@ export default function InboxPage() {
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id, notes, is_paid')
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id, notes')
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
       if (error) { setErr(error.message); setLoading(false); return }
@@ -118,7 +117,6 @@ export default function InboxPage() {
               <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Notes</th>
-              <th style={{ textAlign:'center', borderBottom:'1px solid #ddd', padding:8 }}>Payé</th>
             </tr>
           </thead>
           <tbody>
@@ -166,9 +164,6 @@ export default function InboxPage() {
                     rows={2}
                     style={{ width: '100%', padding: 6, resize: 'vertical' }}
                   />
-                </td>
-                <td style={{ padding:8, textAlign:'center' }}>
-                  {r.is_paid ? '✅' : '—'}
                 </td>
               </tr>
             ))}
