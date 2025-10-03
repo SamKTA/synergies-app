@@ -17,6 +17,7 @@ type Row = {
   amount: number | null
   receiver_id: string | null
   notes: string | null
+  is_paid: boolean | null
 }
 
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
@@ -29,22 +30,6 @@ export default function InboxPage() {
   const [meId, setMeId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [q, setQ] = useState('')
-
-  const [selectedIntake, setSelectedIntake] = useState<string[]>([])
-  const [selectedDeal, setSelectedDeal] = useState<string[]>([])
-  const [showFilters, setShowFilters] = useState(false)
-
-  const toggleIntake = (val: string) =>
-    setSelectedIntake(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
-
-  const toggleDeal = (val: string) =>
-    setSelectedDeal(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
-
-  const resetFilters = () => {
-    setQ('')
-    setSelectedIntake([])
-    setSelectedDeal([])
-  }
 
   useEffect(() => {
     const run = async () => {
@@ -63,7 +48,7 @@ export default function InboxPage() {
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id, notes')
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id, notes, is_paid')
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
       if (error) { setErr(error.message); setLoading(false); return }
@@ -74,20 +59,15 @@ export default function InboxPage() {
   }, [])
 
   const filtered = useMemo(() => {
+    if (!q) return rows
     const s = q.toLowerCase()
-    return rows.filter(r => {
-      const matchSearch =
-        (r.client_name ?? '').toLowerCase().includes(s) ||
-        (r.project_title ?? '').toLowerCase().includes(s) ||
-        (r.intake_status ?? '').toLowerCase().includes(s) ||
-        (r.deal_stage ?? '').toLowerCase().includes(s)
-
-      const matchIntake = selectedIntake.length === 0 || selectedIntake.includes(r.intake_status)
-      const matchDeal = selectedDeal.length === 0 || selectedDeal.includes(r.deal_stage)
-
-      return matchSearch && matchIntake && matchDeal
-    })
-  }, [rows, q, selectedIntake, selectedDeal])
+    return rows.filter(r =>
+      (r.client_name ?? '').toLowerCase().includes(s) ||
+      (r.project_title ?? '').toLowerCase().includes(s) ||
+      (r.intake_status ?? '').toLowerCase().includes(s) ||
+      (r.deal_stage ?? '').toLowerCase().includes(s)
+    )
+  }, [rows, q])
 
   const updateRow = async (id: string, patch: Partial<Row>) => {
     setSavingId(id)
@@ -121,50 +101,7 @@ export default function InboxPage() {
         <a href="/reco/new" style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
           + Nouvelle reco
         </a>
-        <button onClick={() => setShowFilters(f => !f)} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
-          {showFilters ? 'Cacher les filtres' : 'Afficher les filtres'}
-        </button>
       </div>
-
-      {showFilters && (
-        <div style={{ display:'flex', gap:40, marginBottom:20, background:'#f9f9f9', padding:12, borderRadius:8 }}>
-          <div>
-            <div style={{ fontWeight:'bold', marginBottom:8 }}>📌 Prise en charge :</div>
-            {INTAKE.map(status => (
-              <label key={status} style={{ display:'block', marginBottom:4 }}>
-                <input
-                  type="checkbox"
-                  checked={selectedIntake.includes(status)}
-                  onChange={() => toggleIntake(status)}
-                  style={{ marginRight:6 }}
-                />
-                {status}
-              </label>
-            ))}
-          </div>
-
-          <div>
-            <div style={{ fontWeight:'bold', marginBottom:8 }}>🚧 Avancement :</div>
-            {DEAL.map(stage => (
-              <label key={stage} style={{ display:'block', marginBottom:4 }}>
-                <input
-                  type="checkbox"
-                  checked={selectedDeal.includes(stage)}
-                  onChange={() => toggleDeal(stage)}
-                  style={{ marginRight:6 }}
-                />
-                {stage}
-              </label>
-            ))}
-          </div>
-
-          <div style={{ alignSelf:'flex-end' }}>
-            <button onClick={resetFilters} style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8 }}>
-              Réinitialiser filtres
-            </button>
-          </div>
-        </div>
-      )}
 
       {loading && <p>Chargement…</p>}
       {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
@@ -181,6 +118,7 @@ export default function InboxPage() {
               <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Notes</th>
+              <th style={{ textAlign:'center', borderBottom:'1px solid #ddd', padding:8 }}>Payé</th>
             </tr>
           </thead>
           <tbody>
@@ -228,6 +166,9 @@ export default function InboxPage() {
                     rows={2}
                     style={{ width: '100%', padding: 6, resize: 'vertical' }}
                   />
+                </td>
+                <td style={{ padding:8, textAlign:'center' }}>
+                  {r.is_paid ? '✅' : '—'}
                 </td>
               </tr>
             ))}
