@@ -1,4 +1,6 @@
-// [...imports + supabase init + type Row inchangés...]
+'use client'
+import React, { useEffect, useState, useMemo } from 'react'
+import { createClient } from '@supabase/supabase-js'
 
 type Row = {
   reco_id: string
