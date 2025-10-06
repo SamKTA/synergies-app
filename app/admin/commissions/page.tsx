@@ -17,7 +17,6 @@ type Row = {
   prescriptor_email: string | null
 
   commission_id: string | null
-  rate: number | null
   status: 'pending' | 'ready' | 'paid'
   calculated_amount: number | null
   due_date: string | null
@@ -32,7 +31,6 @@ export default function AdminCommissionsPage() {
   const [q, setQ] = useState('')
   const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current')
 
-  // Vérifie que l'utilisateur est admin (sécurité UI ; RLS protège côté DB)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -51,7 +49,6 @@ export default function AdminCommissionsPage() {
       if (me?.role !== 'admin') { setErr('Accès réservé à la Direction.'); setLoading(false); return }
       setIsAdmin(true)
 
-      // Recos actées + commission (LEFT JOIN)
       const { data, error } = await supabase
         .from('recommendations')
         .select(`
@@ -63,7 +60,7 @@ export default function AdminCommissionsPage() {
           prescriptor_name,
           prescriptor_email,
           commissions (
-            id, rate, status, calculated_amount, due_date, paid_at
+            id, status, calculated_amount, due_date, paid_at
           )
         `)
         .eq('deal_stage', 'acte_recrute')
@@ -81,7 +78,6 @@ export default function AdminCommissionsPage() {
         prescriptor_email: r.prescriptor_email,
 
         commission_id: r.commissions?.id ?? null,
-        rate: r.commissions?.rate ?? null,
         status: r.commissions?.status ?? 'pending',
         calculated_amount: r.commissions?.calculated_amount ?? null,
         due_date: r.commissions?.due_date ?? null,
@@ -94,7 +90,6 @@ export default function AdminCommissionsPage() {
     run()
   }, [])
 
-  // ---- Filtre (mois + recherche) ------------------------------------------
   const filtered = useMemo(() => {
     let list = rows
     const today = new Date()
@@ -117,7 +112,7 @@ export default function AdminCommissionsPage() {
         end   = new Date(today.getFullYear(), today.getMonth(), 0)
       }
       list = list.filter(r => {
-        const ref = r.paid_at ?? r.due_date // priorité au payé, sinon échéance
+        const ref = r.paid_at ?? r.due_date
         return inRange(ref, start, end)
       })
     }
@@ -135,9 +130,8 @@ export default function AdminCommissionsPage() {
     return list
   }, [rows, q, monthFilter])
 
-  // ---- Actions -------------------------------------------------------------
   const updateDueDate = async (commissionId: string | null, recoId: string, isoDate: string) => {
-    if (!commissionId) { alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement."); return }
+    if (!commissionId) return alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement.")
     setSaving(commissionId)
     const { error } = await supabase.from('commissions').update({ due_date: isoDate }).eq('id', commissionId)
     setSaving(null)
@@ -146,7 +140,7 @@ export default function AdminCommissionsPage() {
   }
 
   const markPaid = async (commissionId: string | null) => {
-    if (!commissionId) { alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement."); return }
+    if (!commissionId) return alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement.")
     setSaving(commissionId)
     const { error } = await supabase.from('commissions').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', commissionId)
     setSaving(null)
@@ -154,86 +148,11 @@ export default function AdminCommissionsPage() {
     setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, status: 'paid', paid_at: new Date().toISOString() } : r))
   }
 
-  const saveAmountAndRate = async (recoId: string, amount: number, commissionId: string | null, rate: number | null) => {
-    const { error: e1 } = await supabase.from('recommendations').update({ amount }).eq('id', recoId)
-    if (e1) return alert(e1.message)
-
-    if (commissionId) {
-      const { error: e2 } = await supabase.from('commissions').update({ rate: rate ?? 5.0 }).eq('id', commissionId)
-      if (e2) return alert(e2.message)
-    }
-
-    setRows(prev => prev.map(r => r.reco_id === recoId ? {
-      ...r,
-      amount,
-      rate: rate ?? r.rate ?? 5.0,
-      calculated_amount: Math.round(((amount || 0) * (rate ?? r.rate ?? 5.0)) ) / 100
-    } : r))
-  }
-
-  // ---- Export CSV (déclarée AVANT le return) ------------------------------
-  const exportCsv = () => {
-    const rowsToExport = filtered
-
-    const toCSV = (val: any) => {
-      if (val === null || val === undefined) return ''
-      const s = String(val)
-      return `"${s.replace(/"/g, '""')}"`
-    }
-
-    const fmtDate = (iso?: string | null) =>
-      iso ? new Date(iso).toLocaleDateString('fr-FR') : ''
-
-    const fmtMoney = (n?: number | null) => {
-      const x = typeof n === 'number' ? n : 0
-      return String(x.toFixed(2)).replace('.', ',')
-    }
-
-    const header = [
-      'Date reco','Client','Projet','Prescripteur','Email prescripteur',
-      'Montant CA','Taux %','Commission €','Échéance','Statut','Payé le',
-    ]
-    const lines = [header.map(toCSV).join(';')]
-
-    for (const r of rowsToExport) {
-      const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100
-      const line = [
-        fmtDate(r.created_at),
-        r.client_name ?? '',
-        r.project_title ?? '',
-        r.prescriptor_name ?? '',
-        r.prescriptor_email ?? '',
-        fmtMoney(r.amount ?? 0),
-        (r.rate ?? 5).toString().replace('.', ','),
-        fmtMoney(calc),
-        fmtDate(r.due_date),
-        r.status,
-        fmtDate(r.paid_at),
-      ].map(toCSV).join(';')
-      lines.push(line)
-    }
-
-    const csv = '\uFEFF' + lines.join('\n') // BOM pour Excel
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-
-    const a = document.createElement('a')
-    const now = new Date()
-    const y = now.getFullYear()
-    const m = String(now.getMonth() + 1).padStart(2, '0')
-    a.href = url
-    a.download = `commissions_${y}-${m}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // ---- UI -----------------------------------------------------------------
-  if (!isAdmin) {
-    return (
-      <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
-        {err ? <p style={{ color:'crimson' }}>{err}</p> : <p>Chargement…</p>}
-      </main>
-    )
+  const saveCommission = async (commissionId: string | null, value: number) => {
+    if (!commissionId) return alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement.")
+    const { error } = await supabase.from('commissions').update({ calculated_amount: value }).eq('id', commissionId)
+    if (error) return alert(error.message)
+    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, calculated_amount: value } : r))
   }
 
   return (
@@ -247,52 +166,21 @@ export default function AdminCommissionsPage() {
           onChange={e=>setQ(e.target.value)}
           style={{ padding:10, flex:1, border:'1px solid #ddd', borderRadius:8 }}
         />
+        {[['current','Mois en cours'],['previous','Mois dernier'],['all','Tout']].map(([val,label]) => (
+          <button
+            key={val}
+            onClick={()=>setMonthFilter(val as any)}
+            style={{
+              padding:'8px 10px', borderRadius:8, border:'1px solid #ddd',
+              background: monthFilter===val ? '#1677ff' : 'white',
+              color: monthFilter===val ? 'white' : '#111'
+            }}>
+            {label}
+          </button>
+        ))}
         <button
-          onClick={()=>setMonthFilter('current')}
-          style={{
-            padding:'8px 10px',
-            borderRadius:8,
-            border:'1px solid #ddd',
-            background: monthFilter==='current' ? '#1677ff' : 'white',
-            color: monthFilter==='current' ? 'white' : '#111'
-          }}
-        >
-          Mois en cours
-        </button>
-        <button
-          onClick={()=>setMonthFilter('previous')}
-          style={{
-            padding:'8px 10px',
-            borderRadius:8,
-            border:'1px solid #ddd',
-            background: monthFilter==='previous' ? '#1677ff' : 'white',
-            color: monthFilter==='previous' ? 'white' : '#111'
-          }}
-        >
-          Mois dernier
-        </button>
-        <button
-          onClick={()=>setMonthFilter('all')}
-          style={{
-            padding:'8px 10px',
-            borderRadius:8,
-            border:'1px solid #ddd',
-            background: monthFilter==='all' ? '#1677ff' : 'white',
-            color: monthFilter==='all' ? 'white' : '#111'
-          }}
-        >
-          Tout
-        </button>
-        <button
-          onClick={exportCsv}
-          style={{
-            padding:'8px 10px',
-            borderRadius:8,
-            border:'1px solid #1677ff',
-            background:'#1677ff',
-            color:'white'
-          }}
-        >
+          onClick={() => exportCsv()}
+          style={{ padding:'8px 10px', borderRadius:8, border:'1px solid #1677ff', background:'#1677ff', color:'white' }}>
           Export CSV
         </button>
       </div>
@@ -308,7 +196,6 @@ export default function AdminCommissionsPage() {
               <th style={th}>Client / Projet</th>
               <th style={th}>Prescripteur</th>
               <th style={th}>Montant (CA)</th>
-              <th style={th}>Taux %</th>
               <th style={th}>Commission €</th>
               <th style={th}>Échéance</th>
               <th style={th}>Statut</th>
@@ -316,66 +203,56 @@ export default function AdminCommissionsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => {
-              const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100
-              return (
-                <tr key={r.reco_id}>
-                  <td style={td}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
-                  <td style={td}>
-                    <div><b>{r.client_name}</b></div>
-                    <div style={{ opacity:.7 }}>{r.project_title ?? '—'}</div>
-                  </td>
-                  <td style={td}>
-                    <div>{r.prescriptor_name ?? '—'}</div>
-                    <div style={{ opacity:.7, fontSize:12 }}>{r.prescriptor_email}</div>
-                  </td>
-                  <td style={td}>
-                    <input
-                      type="number" step="0.01" min="0"
-                      defaultValue={r.amount ?? 0}
-                      onBlur={(e)=>saveAmountAndRate(r.reco_id, parseFloat(e.target.value || '0'), r.commission_id, r.rate)}
-                      style={{ width:110, padding:6 }}
-                    />
-                  </td>
-                  <td style={td}>
-                    <input
-                      type="number" step="0.1" min="0"
-                      defaultValue={r.rate ?? 5}
-                      onBlur={(e)=>saveAmountAndRate(r.reco_id, r.amount ?? 0, r.commission_id, parseFloat(e.target.value || '5'))}
-                      style={{ width:70, padding:6 }}
-                    />
-                  </td>
-                  <td style={td}>{(calc).toFixed(2)}</td>
-                  <td style={td}>
-                    <input
-                      type="date"
-                      value={r.due_date ? r.due_date.substring(0,10) : ''}
-                      onChange={(e)=>updateDueDate(r.commission_id, r.reco_id, e.target.value)}
-                      style={{ padding:6 }}
-                    />
-                  </td>
-                  <td style={td}>
-                    {r.status === 'paid'
-                      ? <span style={{ color:'green', fontWeight:600 }}>Payé</span>
-                      : r.status === 'ready'
-                        ? <span style={{ color:'#1677ff' }}>Prêt</span>
-                        : <span style={{ color:'#fa8c16' }}>En attente</span>}
-                    {r.paid_at && <div style={{ fontSize:12, opacity:.7 }}>
-                      le {new Date(r.paid_at).toLocaleDateString('fr-FR')}
-                    </div>}
-                  </td>
-                  <td style={td}>
-                    <button
-                      disabled={saving === r.commission_id || r.status === 'paid'}
-                      onClick={()=>markPaid(r.commission_id)}
-                      style={{ padding:'6px 10px' }}
-                    >
-                      {saving === r.commission_id ? '…' : 'Marquer payé'}
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
+            {filtered.map(r => (
+              <tr key={r.reco_id}>
+                <td style={td}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+                <td style={td}>
+                  <div><b>{r.client_name}</b></div>
+                  <div style={{ opacity:.7 }}>{r.project_title ?? '—'}</div>
+                </td>
+                <td style={td}>
+                  <div>{r.prescriptor_name ?? '—'}</div>
+                  <div style={{ opacity:.7, fontSize:12 }}>{r.prescriptor_email}</div>
+                </td>
+                <td style={td}>
+                  <div>{typeof r.amount === 'number' ? r.amount.toFixed(2) : '—'}</div>
+                </td>
+                <td style={td}>
+                  <input
+                    type="number" step="0.01" min="0"
+                    defaultValue={r.calculated_amount ?? 0}
+                    onBlur={(e)=>saveCommission(r.commission_id, parseFloat(e.target.value || '0'))}
+                    style={{ width:100, padding:6 }}
+                  />
+                </td>
+                <td style={td}>
+                  <input
+                    type="date"
+                    value={r.due_date ? r.due_date.substring(0,10) : ''}
+                    onChange={(e)=>updateDueDate(r.commission_id, r.reco_id, e.target.value)}
+                    style={{ padding:6 }}
+                  />
+                </td>
+                <td style={td}>
+                  {r.status === 'paid'
+                    ? <span style={{ color:'green', fontWeight:600 }}>Payé</span>
+                    : r.status === 'ready'
+                      ? <span style={{ color:'#1677ff' }}>Prêt</span>
+                      : <span style={{ color:'#fa8c16' }}>En attente</span>}
+                  {r.paid_at && <div style={{ fontSize:12, opacity:.7 }}>
+                    le {new Date(r.paid_at).toLocaleDateString('fr-FR')}
+                  </div>}
+                </td>
+                <td style={td}>
+                  <button
+                    disabled={saving === r.commission_id || r.status === 'paid'}
+                    onClick={()=>markPaid(r.commission_id)}
+                    style={{ padding:'6px 10px' }}>
+                    {saving === r.commission_id ? '…' : 'Marquer payé'}
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}
