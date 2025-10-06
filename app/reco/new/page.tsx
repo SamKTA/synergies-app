@@ -1,3 +1,4 @@
+// ... (imports et setup identiques)
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -15,29 +16,27 @@ type Employee = {
   is_active?: boolean | null
 }
 
-// options projet avec couleurs douces
-const projectOptions = [
-  { label: 'Vente', color: '#fef3c7' },
-  { label: 'Achat', color: '#e0f2fe' },
-  { label: 'Location', color: '#ede9fe' },
-  { label: 'Gestion', color: '#dcfce7' },
-  { label: 'Location & Gestion', color: '#fce7f3' },
-  { label: 'Syndic', color: '#f3f4f6' },
+// 💡 Liste des projets avec leurs couleurs douces
+const PROJECT_OPTIONS: { label: string, color: string }[] = [
+  { label: 'Vente', color: '#fde2e4' },
+  { label: 'Achat', color: '#dbeafe' },
+  { label: 'Location', color: '#fef9c3' },
+  { label: 'Gestion', color: '#e0f2fe' },
+  { label: 'Location & Gestion', color: '#ede9fe' },
+  { label: 'Syndic', color: '#f0fdf4' },
   { label: 'Ona Entreprises', color: '#ffe4e6' },
-  { label: 'Recrutement', color: '#e0e7ff' }
+  { label: 'Recrutement', color: '#fef2f2' },
 ]
 
 export default function NewRecoPage() {
-  // Champs formulaire
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
-  const [projectTitle, setProjectTitle] = useState('')
+  const [projectTitle, setProjectTitle] = useState('') // sécurise valeur vide par défaut
   const [projectAddress, setProjectAddress] = useState('')
   const [projectDetails, setProjectDetails] = useState('')
   const [receiverId, setReceiverId] = useState<string>('')
 
-  // État
   const [me, setMe] = useState<Employee | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,7 +44,6 @@ export default function NewRecoPage() {
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
 
-  // Sélecteur intelligent (receveur)
   const [receiverSearch, setReceiverSearch] = useState('')
   const [receiverOpen, setReceiverOpen] = useState(false)
 
@@ -65,11 +63,11 @@ export default function NewRecoPage() {
     })
   }, [employees, receiverSearch])
 
-  // Chargement des données de base
   useEffect(() => {
     const run = async () => {
       setLoading(true)
       setError(null)
+
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) { setError(userErr.message); setLoading(false); return }
       const user = userData?.user
@@ -93,7 +91,6 @@ export default function NewRecoPage() {
     run()
   }, [])
 
-  // Soumission du formulaire
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -110,11 +107,14 @@ export default function NewRecoPage() {
       prescriptor_id: me.id,
       prescriptor_name: prescriptorName,
       prescriptor_email: me.email,
+
       receiver_id: receiver.id,
       receiver_email: receiver.email,
+
       client_name: clientName,
       client_email: clientEmail || null,
       client_phone: clientPhone || null,
+
       project_title: projectTitle || null,
       project_details: projectDetails || null,
       project_address: projectAddress || null,
@@ -167,17 +167,8 @@ export default function NewRecoPage() {
   }
 
   if (loading) {
-    return (
-      <main style={{ maxWidth: 720, margin: '64px auto', fontFamily: 'sans-serif' }}>
-        Chargement…
-      </main>
-    )
+    return <main style={{ maxWidth: 720, margin: '64px auto', fontFamily: 'sans-serif' }}>Chargement…</main>
   }
-
-  const projectColor = useMemo(() => {
-    const match = projectOptions.find(p => p.label === projectTitle)
-    return match?.color || 'white'
-  }, [projectTitle])
 
   return (
     <main style={{ maxWidth: 720, margin: '64px auto', padding: 24, fontFamily: 'sans-serif' }}>
@@ -200,9 +191,24 @@ export default function NewRecoPage() {
       )}
 
       <form onSubmit={onSubmit}>
-        {/* Receveur inchangé */}
-        {/* ... ton bloc receveur existant ... */}
+        {/* CHAMP : Projet concerné avec couleurs */}
+        <label style={{ display: 'block', marginTop: 12 }}>
+          Projet concerné
+          <select
+            value={projectTitle}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
+          >
+            <option value="">— Sélectionner —</option>
+            {PROJECT_OPTIONS.map(opt => (
+              <option key={opt.label} value={opt.label} style={{ background: opt.color }}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
+        {/* Les autres champs (identiques à avant) */}
         <label style={{ display: 'block', marginTop: 12 }}>
           Nom du client *
           <input
@@ -230,24 +236,6 @@ export default function NewRecoPage() {
             onChange={(e) => setClientPhone(e.target.value)}
             style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }}
           />
-        </label>
-
-        {/* Ici le nouveau select projet */}
-        <label style={{ display: 'block', marginTop: 12 }}>
-          Projet concerné (titre)
-          <select
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            style={{
-              display: 'block', width: '100%', padding: 10, marginTop: 6,
-              backgroundColor: projectColor, border: '1px solid #ccc', borderRadius: 4
-            }}
-          >
-            <option value="">-- Choisir un projet --</option>
-            {projectOptions.map(opt => (
-              <option key={opt.label} value={opt.label}>{opt.label}</option>
-            ))}
-          </select>
         </label>
 
         <label style={{ display: 'block', marginTop: 12 }}>
