@@ -7,19 +7,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const computeCommission = (project: string | null): number => {
-  const norm = (project ?? '').toLowerCase().trim()
-  const eligible = [
-    'vente',
-    'gestion',
-    'loc/gestion',
-    'syndic',
-    'ona entreprises',
-    'recrutement'
-  ]
-  return eligible.some(e => norm.includes(e)) ? 100 : 0
-}
-
 type Row = {
   reco_id: string
   created_at: string
@@ -28,7 +15,9 @@ type Row = {
   amount: number | null
   prescriptor_name: string | null
   prescriptor_email: string | null
+
   commission_id: string | null
+  rate: number | null
   status: 'pending' | 'ready' | 'paid'
   calculated_amount: number | null
   due_date: string | null
@@ -36,36 +25,51 @@ type Row = {
 }
 
 export default function AdminCommissionsPage() {
-  const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [rows, setRows] = useState<Row[]>([])
+  const [saving, setSaving] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current')
+
+  // Vérifie que l'utilisateur est admin (sécurité UI ; RLS protège côté DB)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
-    const fetchData = async () => {
+    const run = async () => {
+      setLoading(true); setErr(null)
+
       const { data: u } = await supabase.auth.getUser()
-      if (!u?.user) return setErr('Non connecté.')
+      if (!u?.user) { setErr('Non connecté.'); setLoading(false); return }
 
       const { data: me, error: meErr } = await supabase
         .from('employees')
         .select('role')
         .eq('user_id', u.user.id)
         .maybeSingle()
-      if (meErr) return setErr(meErr.message)
-      if (me?.role !== 'admin') return setErr('Accès réservé à la Direction.')
-
+      if (meErr) { setErr(meErr.message); setLoading(false); return }
+      if (me?.role !== 'admin') { setErr('Accès réservé à la Direction.'); setLoading(false); return }
       setIsAdmin(true)
+
+      // Recos actées + commission (LEFT JOIN)
       const { data, error } = await supabase
         .from('recommendations')
         .select(`
-          id, created_at, client_name, project_title, amount,
-          prescriptor_name, prescriptor_email,
-          commissions (id, status, calculated_amount, due_date, paid_at)
+          id,
+          created_at,
+          client_name,
+          project_title,
+          amount,
+          prescriptor_name,
+          prescriptor_email,
+          commissions (
+            id, rate, status, calculated_amount, due_date, paid_at
+          )
         `)
         .eq('deal_stage', 'acte_recrute')
         .order('created_at', { ascending: false })
 
-      if (error) return setErr(error.message)
+      if (error) { setErr(error.message); setLoading(false); return }
 
       const flat: Row[] = (data ?? []).map((r: any) => ({
         reco_id: r.id,
@@ -75,9 +79,11 @@ export default function AdminCommissionsPage() {
         amount: r.amount,
         prescriptor_name: r.prescriptor_name,
         prescriptor_email: r.prescriptor_email,
+
         commission_id: r.commissions?.id ?? null,
+        rate: r.commissions?.rate ?? null,
         status: r.commissions?.status ?? 'pending',
-        calculated_amount: r.commissions?.calculated_amount ?? computeCommission(r.project_title),
+        calculated_amount: r.commissions?.calculated_amount ?? null,
         due_date: r.commissions?.due_date ?? null,
         paid_at: r.commissions?.paid_at ?? null,
       }))
@@ -85,41 +91,297 @@ export default function AdminCommissionsPage() {
       setRows(flat)
       setLoading(false)
     }
-    fetchData()
+    run()
   }, [])
 
+  // ---- Filtre (mois + recherche) ------------------------------------------
+  const filtered = useMemo(() => {
+    let list = rows
+    const today = new Date()
+
+    const inRange = (iso?: string | null, start?: Date, end?: Date) => {
+      if (!iso) return false
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return false
+      if (!start || !end) return true
+      return d >= start && d <= end
+    }
+
+    if (monthFilter !== 'all') {
+      let start: Date, end: Date
+      if (monthFilter === 'current') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1)
+        end   = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      } else {
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        end   = new Date(today.getFullYear(), today.getMonth(), 0)
+      }
+      list = list.filter(r => {
+        const ref = r.paid_at ?? r.due_date // priorité au payé, sinon échéance
+        return inRange(ref, start, end)
+      })
+    }
+
+    if (q) {
+      const s = q.toLowerCase()
+      list = list.filter(r =>
+        (r.client_name ?? '').toLowerCase().includes(s) ||
+        (r.project_title ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_email ?? '').toLowerCase().includes(s)
+      )
+    }
+
+    return list
+  }, [rows, q, monthFilter])
+
+  // ---- Actions -------------------------------------------------------------
+  const updateDueDate = async (commissionId: string | null, recoId: string, isoDate: string) => {
+    if (!commissionId) { alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement."); return }
+    setSaving(commissionId)
+    const { error } = await supabase.from('commissions').update({ due_date: isoDate }).eq('id', commissionId)
+    setSaving(null)
+    if (error) return alert(error.message)
+    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, due_date: isoDate } : r))
+  }
+
+  const markPaid = async (commissionId: string | null) => {
+    if (!commissionId) { alert("Commission absente : ouvre/ferme l'affaire pour la créer automatiquement."); return }
+    setSaving(commissionId)
+    const { error } = await supabase.from('commissions').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', commissionId)
+    setSaving(null)
+    if (error) return alert(error.message)
+    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, status: 'paid', paid_at: new Date().toISOString() } : r))
+  }
+
+  const saveAmountAndRate = async (recoId: string, amount: number, commissionId: string | null, rate: number | null) => {
+    const { error: e1 } = await supabase.from('recommendations').update({ amount }).eq('id', recoId)
+    if (e1) return alert(e1.message)
+
+    if (commissionId) {
+      const { error: e2 } = await supabase.from('commissions').update({ rate: rate ?? 5.0 }).eq('id', commissionId)
+      if (e2) return alert(e2.message)
+    }
+
+    setRows(prev => prev.map(r => r.reco_id === recoId ? {
+      ...r,
+      amount,
+      rate: rate ?? r.rate ?? 5.0,
+      calculated_amount: Math.round(((amount || 0) * (rate ?? r.rate ?? 5.0)) ) / 100
+    } : r))
+  }
+
+  // ---- Export CSV (déclarée AVANT le return) ------------------------------
+  const exportCsv = () => {
+    const rowsToExport = filtered
+
+    const toCSV = (val: any) => {
+      if (val === null || val === undefined) return ''
+      const s = String(val)
+      return `"${s.replace(/"/g, '""')}"`
+    }
+
+    const fmtDate = (iso?: string | null) =>
+      iso ? new Date(iso).toLocaleDateString('fr-FR') : ''
+
+    const fmtMoney = (n?: number | null) => {
+      const x = typeof n === 'number' ? n : 0
+      return String(x.toFixed(2)).replace('.', ',')
+    }
+
+    const header = [
+      'Date reco','Client','Projet','Prescripteur','Email prescripteur',
+      'Montant CA','Taux %','Commission €','Échéance','Statut','Payé le',
+    ]
+    const lines = [header.map(toCSV).join(';')]
+
+    for (const r of rowsToExport) {
+      const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100
+      const line = [
+        fmtDate(r.created_at),
+        r.client_name ?? '',
+        r.project_title ?? '',
+        r.prescriptor_name ?? '',
+        r.prescriptor_email ?? '',
+        fmtMoney(r.amount ?? 0),
+        (r.rate ?? 5).toString().replace('.', ','),
+        fmtMoney(calc),
+        fmtDate(r.due_date),
+        r.status,
+        fmtDate(r.paid_at),
+      ].map(toCSV).join(';')
+      lines.push(line)
+    }
+
+    const csv = '\uFEFF' + lines.join('\n') // BOM pour Excel
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    a.href = url
+    a.download = `commissions_${y}-${m}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ---- UI -----------------------------------------------------------------
   if (!isAdmin) {
-    return <main>{err ? <p style={{ color: 'crimson' }}>{err}</p> : <p>Chargement...</p>}</main>
+    return (
+      <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+        {err ? <p style={{ color:'crimson' }}>{err}</p> : <p>Chargement…</p>}
+      </main>
+    )
   }
 
   return (
-    <main>
+    <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Commissions — Affaires actées</h1>
-      {loading && <p>Chargement...</p>}
-      {!loading && (
-        <table>
+
+      <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
+        <input
+          placeholder="Recherche (client, projet, salarié)"
+          value={q}
+          onChange={e=>setQ(e.target.value)}
+          style={{ padding:10, flex:1, border:'1px solid #ddd', borderRadius:8 }}
+        />
+        <button
+          onClick={()=>setMonthFilter('current')}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #ddd',
+            background: monthFilter==='current' ? '#1677ff' : 'white',
+            color: monthFilter==='current' ? 'white' : '#111'
+          }}
+        >
+          Mois en cours
+        </button>
+        <button
+          onClick={()=>setMonthFilter('previous')}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #ddd',
+            background: monthFilter==='previous' ? '#1677ff' : 'white',
+            color: monthFilter==='previous' ? 'white' : '#111'
+          }}
+        >
+          Mois dernier
+        </button>
+        <button
+          onClick={()=>setMonthFilter('all')}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #ddd',
+            background: monthFilter==='all' ? '#1677ff' : 'white',
+            color: monthFilter==='all' ? 'white' : '#111'
+          }}
+        >
+          Tout
+        </button>
+        <button
+          onClick={exportCsv}
+          style={{
+            padding:'8px 10px',
+            borderRadius:8,
+            border:'1px solid #1677ff',
+            background:'#1677ff',
+            color:'white'
+          }}
+        >
+          Export CSV
+        </button>
+      </div>
+
+      {loading && <p>Chargement…</p>}
+      {err && <p style={{ color:'crimson' }}>Erreur : {err}</p>}
+
+      {!loading && !err && (
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Client</th>
-              <th>Projet</th>
-              <th>Montant</th>
-              <th>Commission</th>
+              <th style={th}>Date</th>
+              <th style={th}>Client / Projet</th>
+              <th style={th}>Prescripteur</th>
+              <th style={th}>Montant (CA)</th>
+              <th style={th}>Taux %</th>
+              <th style={th}>Commission €</th>
+              <th style={th}>Échéance</th>
+              <th style={th}>Statut</th>
+              <th style={th}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.reco_id}>
-                <td>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
-                <td>{r.client_name}</td>
-                <td>{r.project_title ?? '—'}</td>
-                <td>{r.amount ?? '—'}</td>
-                <td>{r.calculated_amount?.toFixed(2)}</td>
-              </tr>
-            ))}
+            {filtered.map(r => {
+              const calc = r.calculated_amount ?? Math.round(((r.amount || 0) * (r.rate ?? 5)) ) / 100
+              return (
+                <tr key={r.reco_id}>
+                  <td style={td}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+                  <td style={td}>
+                    <div><b>{r.client_name}</b></div>
+                    <div style={{ opacity:.7 }}>{r.project_title ?? '—'}</div>
+                  </td>
+                  <td style={td}>
+                    <div>{r.prescriptor_name ?? '—'}</div>
+                    <div style={{ opacity:.7, fontSize:12 }}>{r.prescriptor_email}</div>
+                  </td>
+                  <td style={td}>
+                    <input
+                      type="number" step="0.01" min="0"
+                      defaultValue={r.amount ?? 0}
+                      onBlur={(e)=>saveAmountAndRate(r.reco_id, parseFloat(e.target.value || '0'), r.commission_id, r.rate)}
+                      style={{ width:110, padding:6 }}
+                    />
+                  </td>
+                  <td style={td}>
+                    <input
+                      type="number" step="0.1" min="0"
+                      defaultValue={r.rate ?? 5}
+                      onBlur={(e)=>saveAmountAndRate(r.reco_id, r.amount ?? 0, r.commission_id, parseFloat(e.target.value || '5'))}
+                      style={{ width:70, padding:6 }}
+                    />
+                  </td>
+                  <td style={td}>{(calc).toFixed(2)}</td>
+                  <td style={td}>
+                    <input
+                      type="date"
+                      value={r.due_date ? r.due_date.substring(0,10) : ''}
+                      onChange={(e)=>updateDueDate(r.commission_id, r.reco_id, e.target.value)}
+                      style={{ padding:6 }}
+                    />
+                  </td>
+                  <td style={td}>
+                    {r.status === 'paid'
+                      ? <span style={{ color:'green', fontWeight:600 }}>Payé</span>
+                      : r.status === 'ready'
+                        ? <span style={{ color:'#1677ff' }}>Prêt</span>
+                        : <span style={{ color:'#fa8c16' }}>En attente</span>}
+                    {r.paid_at && <div style={{ fontSize:12, opacity:.7 }}>
+                      le {new Date(r.paid_at).toLocaleDateString('fr-FR')}
+                    </div>}
+                  </td>
+                  <td style={td}>
+                    <button
+                      disabled={saving === r.commission_id || r.status === 'paid'}
+                      onClick={()=>markPaid(r.commission_id)}
+                      style={{ padding:'6px 10px' }}
+                    >
+                      {saving === r.commission_id ? '…' : 'Marquer payé'}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}
     </main>
   )
 }
+
+const th: React.CSSProperties = { textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }
+const td: React.CSSProperties = { padding:8, borderBottom:'1px solid #f1f1f1', verticalAlign:'top' }
