@@ -22,6 +22,17 @@ type Row = {
 const INTAKE = ['non_traitee','contacte','rdv_pris','messagerie','injoignable']
 const DEAL = ['nouveau','en_cours','transforme','acte_recrute','sans_suite'] as const
 
+const PROJECT_COLORS: Record<string, string> = {
+  'Vente': '#ffe0e0',
+  'Achat': '#e0f7ff',
+  'Location': '#e8ffe0',
+  'Gestion': '#fff4cc',
+  'Location & Gestion': '#f0e0ff',
+  'Syndic': '#e0ecff',
+  'Ona Entreprises': '#ffe0f5',
+  'Recrutement': '#f0f0f0'
+}
+
 export default function InboxPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
@@ -29,6 +40,9 @@ export default function InboxPage() {
   const [meId, setMeId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [q, setQ] = useState('')
+
+  const [intakeFilter, setIntakeFilter] = useState<string[]>([])
+  const [dealFilter, setDealFilter] = useState<string[]>([])
 
   useEffect(() => {
     const run = async () => {
@@ -58,15 +72,24 @@ export default function InboxPage() {
   }, [])
 
   const filtered = useMemo(() => {
-    if (!q) return rows
-    const s = q.toLowerCase()
-    return rows.filter(r =>
-      (r.client_name ?? '').toLowerCase().includes(s) ||
-      (r.project_title ?? '').toLowerCase().includes(s) ||
-      (r.intake_status ?? '').toLowerCase().includes(s) ||
-      (r.deal_stage ?? '').toLowerCase().includes(s)
-    )
-  }, [rows, q])
+    return rows.filter(r => {
+      const s = q.toLowerCase()
+      const matchSearch =
+        (r.client_name ?? '').toLowerCase().includes(s) ||
+        (r.project_title ?? '').toLowerCase().includes(s) ||
+        (r.intake_status ?? '').toLowerCase().includes(s) ||
+        (r.deal_stage ?? '').toLowerCase().includes(s)
+
+      const matchIntake = intakeFilter.length === 0 || intakeFilter.includes(r.intake_status)
+      const matchDeal = dealFilter.length === 0 || dealFilter.includes(r.deal_stage)
+
+      return matchSearch && matchIntake && matchDeal
+    })
+  }, [rows, q, intakeFilter, dealFilter])
+
+  const toggleFilter = (value: string, current: string[], setter: (v: string[]) => void) => {
+    setter(current.includes(value) ? current.filter(v => v !== value) : [...current, value])
+  }
 
   const updateRow = async (id: string, patch: Partial<Row>) => {
     setSavingId(id)
@@ -97,6 +120,34 @@ export default function InboxPage() {
           onChange={e=>setQ(e.target.value)}
           style={{ padding:10, flex:1 }}
         />
+        <details style={{ position:'relative' }}>
+          <summary style={{ cursor:'pointer' }}>Filtre prise en charge</summary>
+          <div style={{ position:'absolute', background:'white', border:'1px solid #ccc', padding:8, zIndex:10 }}>
+            {INTAKE.map(opt => (
+              <label key={opt} style={{ display:'block' }}>
+                <input
+                  type="checkbox"
+                  checked={intakeFilter.includes(opt)}
+                  onChange={() => toggleFilter(opt, intakeFilter, setIntakeFilter)}
+                /> {opt}
+              </label>
+            ))}
+          </div>
+        </details>
+        <details style={{ position:'relative' }}>
+          <summary style={{ cursor:'pointer' }}>Filtre avancement</summary>
+          <div style={{ position:'absolute', background:'white', border:'1px solid #ccc', padding:8, zIndex:10 }}>
+            {DEAL.map(opt => (
+              <label key={opt} style={{ display:'block' }}>
+                <input
+                  type="checkbox"
+                  checked={dealFilter.includes(opt)}
+                  onChange={() => toggleFilter(opt, dealFilter, setDealFilter)}
+                /> {opt}
+              </label>
+            ))}
+          </div>
+        </details>
         <a href="/reco/new" style={{ padding:'10px 14px', border:'1px solid #ddd', borderRadius:8, textDecoration:'none' }}>
           + Nouvelle reco
         </a>
@@ -124,7 +175,9 @@ export default function InboxPage() {
               <tr key={r.id}>
                 <td style={{ padding:8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
                 <td style={{ padding:8 }}>{r.client_name}</td>
-                <td style={{ padding:8 }}>{r.project_title ?? '—'}</td>
+                <td style={{ padding:8, backgroundColor: PROJECT_COLORS[r.project_title ?? ''] ?? 'transparent' }}>
+                  {r.project_title ?? '—'}
+                </td>
                 <td style={{ padding:8 }}>
                   <select
                     value={r.intake_status}
