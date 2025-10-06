@@ -20,6 +20,21 @@ type Row = {
   is_paid: boolean
 }
 
+const INTAKE = ['non_traitee', 'contacte', 'rdv_pris', 'messagerie', 'injoignable']
+const DEAL = ['nouveau', 'en_cours', 'transforme', 'acte_recrute', 'sans_suite'] as const
+const PAYEE = ['paid', 'pending']
+
+const COLORS: Record<string, string> = {
+  'Vente': '#fee2e2',
+  'Achat': '#e0f2fe',
+  'Location': '#ede9fe',
+  'Gestion': '#dcfce7',
+  'Location & Gestion': '#fef9c3',
+  'Syndic': '#fce7f3',
+  'Ona Entreprises': '#e2e8f0',
+  'Recrutement': '#fff7ed'
+}
+
 export default function SentPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
@@ -27,6 +42,9 @@ export default function SentPage() {
   const [meId, setMeId] = useState<string | null>(null)
   const [meName, setMeName] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [intakeFilters, setIntakeFilters] = useState<string[]>([])
+  const [dealFilters, setDealFilters] = useState<string[]>([])
+  const [payeeFilters, setPayeeFilters] = useState<string[]>([])
 
   useEffect(() => {
     const run = async () => {
@@ -98,17 +116,19 @@ export default function SentPage() {
     run()
   }, [])
 
+  const toggleFilter = (filterList: string[], setList: (s: string[]) => void, value: string) => {
+    setList(filterList.includes(value) ? filterList.filter(f => f !== value) : [...filterList, value])
+  }
+
   const filtered = useMemo(() => {
-    if (!q) return rows
-    const s = q.toLowerCase()
-    return rows.filter(r =>
-      (r.client_name ?? '').toLowerCase().includes(s) ||
-      (r.project_title ?? '').toLowerCase().includes(s) ||
-      (r.intake_status ?? '').toLowerCase().includes(s) ||
-      (r.deal_stage ?? '').toLowerCase().includes(s) ||
-      (r.receiver_email ?? '').toLowerCase().includes(s)
-    )
-  }, [rows, q])
+    return rows.filter(r => {
+      const matchesSearch = q.trim() === '' || [r.client_name, r.project_title, r.intake_status, r.deal_stage, r.receiver_email].some(f => (f ?? '').toLowerCase().includes(q.toLowerCase()))
+      const matchesIntake = intakeFilters.length === 0 || intakeFilters.includes(r.intake_status)
+      const matchesDeal = dealFilters.length === 0 || dealFilters.includes(r.deal_stage)
+      const matchesPaid = payeeFilters.length === 0 || payeeFilters.includes(r.is_paid ? 'paid' : 'pending')
+      return matchesSearch && matchesIntake && matchesDeal && matchesPaid
+    })
+  }, [rows, q, intakeFilters, dealFilters, payeeFilters])
 
   const sendReminder = async (r: Row) => {
     if (!r.receiver_email || !meName) {
@@ -126,19 +146,12 @@ export default function SentPage() {
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: r.receiver_email,
-        subject,
-        html
-      })
+      body: JSON.stringify({ to: r.receiver_email, subject, html })
     })
 
     const json = await res.json()
-    if (!json.ok) {
-      alert(`Erreur envoi : ${json.error}`)
-    } else {
-      alert('Relance envoyée ✅')
-    }
+    if (!json.ok) alert(`Erreur envoi : ${json.error}`)
+    else alert('Relance envoyée ✅')
   }
 
   return (
@@ -152,6 +165,35 @@ export default function SentPage() {
           onChange={e=>setQ(e.target.value)}
           style={{ padding:10, flex:1 }}
         />
+        <details>
+          <summary style={{ cursor: 'pointer' }}>🎯 Filtres</summary>
+          <div style={{ display: 'flex', gap: 20, marginTop: 10 }}>
+            <div>
+              <div style={{ fontWeight: 'bold' }}>Prise en charge</div>
+              {INTAKE.map(s => (
+                <label key={s} style={{ display: 'block' }}>
+                  <input type="checkbox" checked={intakeFilters.includes(s)} onChange={() => toggleFilter(intakeFilters, setIntakeFilters, s)} /> {s}
+                </label>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontWeight: 'bold' }}>Avancement</div>
+              {DEAL.map(s => (
+                <label key={s} style={{ display: 'block' }}>
+                  <input type="checkbox" checked={dealFilters.includes(s)} onChange={() => toggleFilter(dealFilters, setDealFilters, s)} /> {s}
+                </label>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontWeight: 'bold' }}>Payée</div>
+              {PAYEE.map(s => (
+                <label key={s} style={{ display: 'block' }}>
+                  <input type="checkbox" checked={payeeFilters.includes(s)} onChange={() => toggleFilter(payeeFilters, setPayeeFilters, s)} /> {s === 'paid' ? '✅ Oui' : '— Non'}
+                </label>
+              ))}
+            </div>
+          </div>
+        </details>
       </div>
 
       {loading && <p>Chargement…</p>}
@@ -174,7 +216,7 @@ export default function SentPage() {
           </thead>
           <tbody>
             {filtered.map(r => (
-              <tr key={r.id}>
+              <tr key={r.id} style={{ background: r.project_title && COLORS[r.project_title] ? COLORS[r.project_title] : 'transparent' }}>
                 <td style={{ padding:8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
                 <td style={{ padding:8 }}>{r.client_name}</td>
                 <td style={{ padding:8 }}>{r.project_title ?? '—'}</td>
