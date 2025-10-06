@@ -1,4 +1,3 @@
-// app/reco/new/page.tsx
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -17,14 +16,14 @@ type Employee = {
 }
 
 const PROJECT_OPTIONS = [
-  { label: 'Vente', color: '#ffe4e6' },
-  { label: 'Achat', color: '#e0f2fe' },
-  { label: 'Location', color: '#fef9c3' },
-  { label: 'Gestion', color: '#e7e5e4' },
-  { label: 'Location & Gestion', color: '#ede9fe' },
-  { label: 'Syndic', color: '#f0fdf4' },
-  { label: 'Ona Entreprises', color: '#fef2f2' },
-  { label: 'Recrutement', color: '#fdf4ff' },
+  { value: 'Vente', color: '#fde68a' },
+  { value: 'Achat', color: '#bfdbfe' },
+  { value: 'Location', color: '#bbf7d0' },
+  { value: 'Gestion', color: '#e9d5ff' },
+  { value: 'Location & Gestion', color: '#fbcfe8' },
+  { value: 'Syndic', color: '#fcd34d' },
+  { value: 'Ona Entreprises', color: '#ddd6fe' },
+  { value: 'Recrutement', color: '#fecaca' },
 ]
 
 export default function NewRecoPage() {
@@ -47,7 +46,6 @@ export default function NewRecoPage() {
   const [receiverOpen, setReceiverOpen] = useState(false)
 
   const receiver = useMemo(() => employees.find(e => e.id === receiverId) ?? null, [employees, receiverId])
-
   const filteredEmployees = useMemo(() => {
     const s = receiverSearch.trim().toLowerCase()
     if (!s) return employees
@@ -61,17 +59,21 @@ export default function NewRecoPage() {
 
   useEffect(() => {
     const run = async () => {
-      setLoading(true); setError(null)
+      setLoading(true)
+      setError(null)
 
       const { data: userData, error: userErr } = await supabase.auth.getUser()
-      if (userErr || !userData?.user) { setError(userErr?.message ?? 'Tu dois être connecté.'); setLoading(false); return }
+      if (userErr) { setError(userErr.message); setLoading(false); return }
+      const user = userData?.user
+      if (!user) { setError('Tu dois être connecté.'); setLoading(false); return }
 
       const { data: meRow, error: meErr } = await supabase
         .from('employees')
         .select('id, first_name, last_name, email, is_active')
-        .eq('user_id', userData.user.id)
+        .eq('user_id', user.id)
         .maybeSingle()
-      if (meErr || !meRow) { setError(meErr?.message ?? 'Aucune fiche employé liée à ton compte.'); setLoading(false); return }
+      if (meErr) { setError(meErr.message); setLoading(false); return }
+      if (!meRow) { setError('Aucune fiche employé liée à ton compte.'); setLoading(false); return }
       setMe(meRow)
 
       const { data: list, error: listErr } = await supabase.rpc('list_active_employees')
@@ -87,9 +89,9 @@ export default function NewRecoPage() {
     e.preventDefault()
     setError(null)
 
-    if (!me) return setError('Utilisateur non identifié.')
-    if (!receiver) return setError('Choisis un receveur.')
-    if (!clientName) return setError('Le nom du client est requis.')
+    if (!me) { setError('Utilisateur non identifié.'); return }
+    if (!receiver) { setError('Choisis un receveur.'); return }
+    if (!clientName) { setError('Le nom du client est requis.'); return }
 
     setSubmitting(true)
 
@@ -99,14 +101,11 @@ export default function NewRecoPage() {
       prescriptor_id: me.id,
       prescriptor_name: prescriptorName,
       prescriptor_email: me.email,
-
       receiver_id: receiver.id,
       receiver_email: receiver.email,
-
       client_name: clientName,
       client_email: clientEmail || null,
       client_phone: clientPhone || null,
-
       project_title: projectTitle || null,
       project_details: projectDetails || null,
       project_address: projectAddress || null,
@@ -137,15 +136,21 @@ export default function NewRecoPage() {
       await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: receiver.email, cc: me.email, subject: emailSubject, html: emailHtml })
+        body: JSON.stringify({
+          to: receiver.email,
+          cc: me.email,
+          subject: emailSubject,
+          html: emailHtml
+        })
       })
     } catch (e) {
       console.warn('Email send failed:', e)
     }
 
-    setOk(true); setSubmitting(false)
-    setClientName(''); setClientEmail(''); setClientPhone('')
-    setProjectTitle(''); setProjectAddress(''); setProjectDetails('')
+    setOk(true)
+    setSubmitting(false)
+    setClientName(''); setClientEmail(''); setClientPhone('');
+    setProjectTitle(''); setProjectAddress(''); setProjectDetails('');
     setReceiverId(''); setReceiverSearch(''); setReceiverOpen(false)
   }
 
@@ -156,15 +161,22 @@ export default function NewRecoPage() {
   return (
     <main style={{ maxWidth: 720, margin: '64px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Nouvelle recommandation</h1>
-      {me && <p style={{ opacity: .7, marginTop: 4 }}>Prescripteur : <b>{me.first_name} {me.last_name}</b> ({me.email})</p>}
+      {me && <p style={{ opacity: .7 }}>Prescripteur : <b>{me.first_name} {me.last_name}</b> ({me.email})</p>}
+
       {ok && <div style={{ padding: 12, background: '#e6ffed', border: '1px solid #b7eb8f', margin: '16px 0' }}>✅ Recommandation enregistrée.</div>}
       {error && <div style={{ padding: 12, background: '#fff1f0', border: '1px solid #ffa39e', margin: '16px 0', color: '#cf1322' }}>{error}</div>}
 
-      <form onSubmit={onSubmit}>
-        {/* Receveur */}
+      <form
+        onSubmit={onSubmit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+            e.preventDefault();
+          }
+        }}
+      >
         <label style={{ display: 'block', marginTop: 12, position: 'relative' }}>
           Receveur
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <input
               value={receiverSearch}
               onChange={(e) => { setReceiverSearch(e.target.value); setReceiverOpen(true) }}
@@ -177,20 +189,19 @@ export default function NewRecoPage() {
                 type="button"
                 onClick={() => { setReceiverId(''); setReceiverSearch(''); setReceiverOpen(false) }}
                 title="Effacer la sélection"
-                style={{ marginTop: 6, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, background: 'white' }}
+                style={{ marginTop: 6, padding:'8px 10px', border:'1px solid #ddd', borderRadius:8, background:'white' }}
               >
                 Effacer
               </button>
             )}
           </div>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
-            {receiver ? <>Sélectionné : <b>{receiver.first_name} {receiver.last_name}</b> — {receiver.email}</> : <>Aucun receveur sélectionné</>}
+            {receiver
+              ? <>Sélectionné : <b>{receiver.first_name} {receiver.last_name}</b> — {receiver.email}</>
+              : <>Aucun receveur sélectionné</>}
           </div>
           {receiverOpen && (
-            <div
-              style={{ position: 'absolute', left: 0, right: 0, top: '100%', background: 'white', border: '1px solid #e5e7eb', borderTop: 'none', zIndex: 20, maxHeight: 240, overflowY: 'auto', borderRadius: '0 0 10px 10px' }}
-              onMouseDown={(e) => e.preventDefault()}
-            >
+            <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', background: 'white', border: '1px solid #e5e7eb', borderTop: 'none', zIndex: 20, maxHeight: 240, overflowY: 'auto', borderRadius: '0 0 10px 10px' }} onMouseDown={(e) => e.preventDefault()}>
               {filteredEmployees.length === 0 && <div style={{ padding: 10, color: '#94a3b8' }}>Aucun résultat…</div>}
               {filteredEmployees.map(emp => (
                 <button
@@ -198,12 +209,12 @@ export default function NewRecoPage() {
                   type="button"
                   onClick={() => {
                     setReceiverId(emp.id)
-                    setReceiverSearch(`${emp.first_name ?? ''} ${emp.last_name ?? ''} — ${emp.email}`)
+                    setReceiverSearch(`${emp.first_name} ${emp.last_name} — ${emp.email}`)
                     setReceiverOpen(false)
                   }}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', background: 'white', cursor: 'pointer' }}
-                  onMouseOver={e => (e.currentTarget.style.background = '#f8fafc')}
-                  onMouseOut={e => (e.currentTarget.style.background = 'white')}
+                  onMouseOver={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                  onMouseOut={(e) => (e.currentTarget.style.background = 'white')}
                 >
                   <div style={{ fontWeight: 600 }}>{emp.first_name} {emp.last_name}</div>
                   <div style={{ fontSize: 12, color: '#64748b' }}>{emp.email}</div>
@@ -215,42 +226,39 @@ export default function NewRecoPage() {
 
         <label style={{ display: 'block', marginTop: 12 }}>
           Nom du client *
-          <input value={clientName} onChange={e => setClientName(e.target.value)} required style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
+          <input value={clientName} onChange={(e) => setClientName(e.target.value)} required style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
         </label>
 
-        {/* Project selector ici */}
         <label style={{ display: 'block', marginTop: 12 }}>
           Projet concerné
           <select
             value={projectTitle}
-            onChange={e => setProjectTitle(e.target.value)}
-            style={{ display: 'block', width: '100%', padding: 10, marginTop: 6, background: projectTitle ? PROJECT_OPTIONS.find(opt => opt.label === projectTitle)?.color : '#f8fafc' }}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            style={{ display: 'block', width: '100%', padding: 10, marginTop: 6, backgroundColor: PROJECT_OPTIONS.find(p => p.value === projectTitle)?.color || 'white' }}
           >
             <option value="">— Choisir —</option>
-            {PROJECT_OPTIONS.map(opt => (
-              <option key={opt.label} value={opt.label}>{opt.label}</option>
-            ))}
+            {PROJECT_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.value}</option>)}
           </select>
         </label>
 
         <label style={{ display: 'block', marginTop: 12 }}>
           Email du client
-          <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
+          <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
         </label>
 
         <label style={{ display: 'block', marginTop: 12 }}>
           Téléphone du client
-          <input value={clientPhone} onChange={e => setClientPhone(e.target.value)} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
+          <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
         </label>
 
         <label style={{ display: 'block', marginTop: 12 }}>
           Adresse du projet
-          <input value={projectAddress} onChange={e => setProjectAddress(e.target.value)} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
+          <input value={projectAddress} onChange={(e) => setProjectAddress(e.target.value)} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
         </label>
 
         <label style={{ display: 'block', marginTop: 12 }}>
           Détails du projet
-          <textarea value={projectDetails} onChange={e => setProjectDetails(e.target.value)} rows={5} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
+          <textarea value={projectDetails} onChange={(e) => setProjectDetails(e.target.value)} rows={5} style={{ display: 'block', width: '100%', padding: 10, marginTop: 6 }} />
         </label>
 
         <button type="submit" disabled={submitting} style={{ marginTop: 16, padding: 12, width: '100%' }}>
