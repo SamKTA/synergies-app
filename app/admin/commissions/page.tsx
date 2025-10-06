@@ -2,6 +2,12 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
+// ✅ CRÉATION DU CLIENT SUPABASE — doit être avant tout appel comme .auth.getUser()
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 type Row = {
   reco_id: string
   created_at: string
