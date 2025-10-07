@@ -15,6 +15,7 @@ type Row = {
   intake_status: string
   deal_stage: string
   amount: number | null
+  annual_amount?: number | null
   receiver_id: string | null
   notes: string | null
 }
@@ -61,7 +62,7 @@ export default function InboxPage() {
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, receiver_id, notes')
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, annual_amount, receiver_id, notes')
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
       if (error) { setErr(error.message); setLoading(false); return }
@@ -165,7 +166,8 @@ export default function InboxPage() {
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Projet</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Prise en charge</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
-              <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
+              <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>CA HT</th>
+              <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:160 }}>CA Annuel HT</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8, width:120 }}>Statut</th>
               <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Notes</th>
             </tr>
@@ -203,6 +205,16 @@ export default function InboxPage() {
                     value={r.amount ?? ''}
                     placeholder="—"
                     onChange={e => updateRow(r.id, { amount: e.target.value === '' ? null : Number(e.target.value) })}
+                    style={{ width:120, padding:6, textAlign:'right' }}
+                  />
+                </td>
+                <td style={{ padding:8, textAlign:'right' }}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={(r.annual_amount ?? '')}
+                    placeholder="—"
+                    onChange={e => updateRow(r.id, { annual_amount: e.target.value === '' ? null : Number(e.target.value) })}
                     style={{ width:120, padding:6, textAlign:'right' }}
                   />
                 </td>
