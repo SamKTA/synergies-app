@@ -15,6 +15,7 @@ type Row = {
   intake_status: string
   deal_stage: string
   amount: number | null
+  annual_amount: number | null
   prescriptor_id: string | null
   receiver_email: string | null
   is_paid: boolean
@@ -42,6 +43,7 @@ export default function SentPage() {
   const [meId, setMeId] = useState<string | null>(null)
   const [meName, setMeName] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [savingId, setSavingId] = useState<string | null>(null)
   const [intakeFilters, setIntakeFilters] = useState<string[]>([])
   const [dealFilters, setDealFilters] = useState<string[]>([])
   const [payeeFilters, setPayeeFilters] = useState<string[]>([])
@@ -75,7 +77,7 @@ export default function SentPage() {
 
       const { data, error } = await supabase
         .from('recommendations')
-        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, prescriptor_id, receiver_email')
+        .select('id, created_at, client_name, project_title, intake_status, deal_stage, amount, annual_amount, prescriptor_id, receiver_email')
         .eq('prescriptor_id', me.id)
         .order('created_at', { ascending: false })
 
@@ -115,6 +117,24 @@ export default function SentPage() {
 
     run()
   }, [])
+
+  const updateRow = async (id: string, patch: Partial<Row>) => {
+    setSavingId(id)
+    const prev = rows
+    const next = rows.map(r => r.id === id ? { ...r, ...patch } : r)
+    setRows(next)
+
+    const { error } = await supabase
+      .from('recommendations')
+      .update(patch)
+      .eq('id', id)
+
+    setSavingId(null)
+    if (error) {
+      setErr(`Erreur sauvegarde: ${error.message}`)
+      setRows(prev)
+    }
+  }
 
   const toggleFilter = (filterList: string[], setList: (s: string[]) => void, value: string) => {
     setList(filterList.includes(value) ? filterList.filter(f => f !== value) : [...filterList, value])
@@ -203,29 +223,47 @@ export default function SentPage() {
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Date</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Client</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Projet</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Prise en charge</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Avancement</th>
-              <th style={{ textAlign:'right', borderBottom:'1px solid #ddd', padding:8, width:140 }}>Montant (€)</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Receveur</th>
-              <th style={{ textAlign:'center', borderBottom:'1px solid #ddd', padding:8 }}>Payée ?</th>
-              <th style={{ textAlign:'left', borderBottom:'1px solid #ddd', padding:8 }}>Actions</th>
+              <th style={th}>Date</th>
+              <th style={th}>Client</th>
+              <th style={th}>Projet</th>
+              <th style={th}>Prise en charge</th>
+              <th style={th}>Avancement</th>
+              <th style={th}>CA HT</th>
+              <th style={th}>CA Annuel HT</th>
+              <th style={th}>Receveur</th>
+              <th style={th}>Payée ?</th>
+              <th style={th}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(r => (
               <tr key={r.id} style={{ background: r.project_title && COLORS[r.project_title] ? COLORS[r.project_title] : 'transparent' }}>
-                <td style={{ padding:8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
-                <td style={{ padding:8 }}>{r.client_name}</td>
-                <td style={{ padding:8 }}>{r.project_title ?? '—'}</td>
-                <td style={{ padding:8 }}>{r.intake_status ?? '—'}</td>
-                <td style={{ padding:8 }}>{r.deal_stage ?? '—'}</td>
-                <td style={{ padding:8, textAlign:'right' }}>{r.amount ?? '—'}</td>
-                <td style={{ padding:8 }}>{r.receiver_email ?? '—'}</td>
+                <td style={td}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
+                <td style={td}>{r.client_name}</td>
+                <td style={td}>{r.project_title ?? '—'}</td>
+                <td style={td}>{r.intake_status ?? '—'}</td>
+                <td style={td}>{r.deal_stage ?? '—'}</td>
+                <td style={td}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={r.amount ?? ''}
+                    onChange={e => updateRow(r.id, { amount: e.target.value === '' ? null : Number(e.target.value) })}
+                    style={{ width: 100, padding: 6, textAlign: 'right' }}
+                  />
+                </td>
+                <td style={td}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={r.annual_amount ?? ''}
+                    onChange={e => updateRow(r.id, { annual_amount: e.target.value === '' ? null : Number(e.target.value) })}
+                    style={{ width: 100, padding: 6, textAlign: 'right' }}
+                  />
+                </td>
+                <td style={td}>{r.receiver_email ?? '—'}</td>
                 <td style={{ padding:8, textAlign: 'center' }}>{r.is_paid ? '✅' : '—'}</td>
-                <td style={{ padding:8 }}>
+                <td style={td}>
                   {r.receiver_email && (
                     <button
                       onClick={() => sendReminder(r)}
@@ -250,3 +288,6 @@ export default function SentPage() {
     </main>
   )
 }
+
+const th: React.CSSProperties = { textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }
+const td: React.CSSProperties = { padding: 8, borderBottom: '1px solid #f1f1f1' }
