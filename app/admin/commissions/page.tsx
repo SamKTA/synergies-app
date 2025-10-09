@@ -1,4 +1,3 @@
-// ✅ AJOUT : useState pour filtre projet + colonne validée
 'use client'
 import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -20,10 +19,10 @@ type Row = {
   status: 'pending' | 'ready' | 'paid'
   due_date: string | null
   paid_at: string | null
-  validated_by_manager?: boolean
+  validated_by_manager: boolean
 }
 
-const PROJECTS = ['Vente', 'Achat', 'Location', 'Gestion', 'Location & Gestion', 'Syndic', 'Ona Entreprises', 'Recrutement']
+const PROJECTS = ['Vente','Achat','Location','Gestion','Location & Gestion','Syndic','Ona Entreprises','Recrutement']
 
 export default function AdminCommissionsPage() {
   const [loading, setLoading] = useState(true)
@@ -32,8 +31,8 @@ export default function AdminCommissionsPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current')
+  const [projectFilters, setProjectFilters] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
-  const [projectFilter, setProjectFilter] = useState<string[]>([])
 
   useEffect(() => {
     const run = async () => {
@@ -60,29 +59,31 @@ export default function AdminCommissionsPage() {
           project_title,
           prescriptor_name,
           prescriptor_email,
+          deal_stage,
           commissions (
             id, status, amount, due_date, paid_at, validated_by_manager
           )
         `)
-        .eq('deal_stage', 'acte_recrute')
         .order('created_at', { ascending: false })
 
       if (error) { setErr(error.message); setLoading(false); return }
 
-      const flat: Row[] = (data ?? []).map((r: any) => ({
-        reco_id: r.id,
-        created_at: r.created_at,
-        client_name: r.client_name,
-        project_title: r.project_title,
-        prescriptor_name: r.prescriptor_name,
-        prescriptor_email: r.prescriptor_email,
-        amount: r.commissions?.amount ?? null,
-        commission_id: r.commissions?.id ?? null,
-        status: r.commissions?.status ?? 'pending',
-        due_date: r.commissions?.due_date ?? null,
-        paid_at: r.commissions?.paid_at ?? null,
-        validated_by_manager: r.commissions?.validated_by_manager ?? false
-      }))
+      const flat: Row[] = (data ?? [])
+        .filter((r: any) => r.deal_stage === 'acte_recrute')
+        .map((r: any) => ({
+          reco_id: r.id,
+          created_at: r.created_at,
+          client_name: r.client_name,
+          project_title: r.project_title,
+          prescriptor_name: r.prescriptor_name,
+          prescriptor_email: r.prescriptor_email,
+          amount: r.commissions?.amount ?? null,
+          commission_id: r.commissions?.id ?? null,
+          status: r.commissions?.status ?? 'pending',
+          due_date: r.commissions?.due_date ?? null,
+          paid_at: r.commissions?.paid_at ?? null,
+          validated_by_manager: r.commissions?.validated_by_manager ?? false
+        }))
 
       setRows(flat)
       setLoading(false)
@@ -90,34 +91,44 @@ export default function AdminCommissionsPage() {
     run()
   }, [])
 
-  const toggleFilter = (value: string, current: string[], setter: (v: string[]) => void) => {
-    setter(current.includes(value) ? current.filter(v => v !== value) : [...current, value])
-  }
-
   const filtered = useMemo(() => {
     let list = rows
     const today = new Date()
 
+    const inRange = (iso?: string | null, start?: Date, end?: Date) => {
+      if (!iso) return false
+      const d = new Date(iso)
+      return !isNaN(d.getTime()) && (!start || !end || (d >= start && d <= end))
+    }
+
     if (monthFilter !== 'all') {
-      const start = new Date(today.getFullYear(), today.getMonth() - (monthFilter === 'previous' ? 1 : 0), 1)
-      const end = new Date(today.getFullYear(), today.getMonth() + (monthFilter === 'previous' ? 0 : 1), 0)
-      list = list.filter(r => {
-        const d = r.paid_at ?? r.due_date
-        return d && new Date(d) >= start && new Date(d) <= end
-      })
+      let start: Date, end: Date
+      if (monthFilter === 'current') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1)
+        end   = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      } else {
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        end   = new Date(today.getFullYear(), today.getMonth(), 0)
+      }
+      list = list.filter(r => inRange(r.paid_at ?? r.due_date, start, end))
     }
 
-    if (q.trim()) {
+    if (projectFilters.length > 0) {
+      list = list.filter(r => r.project_title && projectFilters.includes(r.project_title))
+    }
+
+    if (q) {
       const s = q.toLowerCase()
-      list = list.filter(r => [r.client_name, r.project_title, r.prescriptor_name, r.prescriptor_email].some(f => (f ?? '').toLowerCase().includes(s)))
-    }
-
-    if (projectFilter.length > 0) {
-      list = list.filter(r => projectFilter.includes(r.project_title ?? ''))
+      list = list.filter(r =>
+        (r.client_name ?? '').toLowerCase().includes(s) ||
+        (r.project_title ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
+        (r.prescriptor_email ?? '').toLowerCase().includes(s)
+      )
     }
 
     return list
-  }, [rows, q, monthFilter, projectFilter])
+  }, [rows, q, monthFilter, projectFilters])
 
   const updateDueDate = async (commissionId: string | null, isoDate: string) => {
     if (!commissionId) return alert("Commission absente")
@@ -138,11 +149,54 @@ export default function AdminCommissionsPage() {
     setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, status: 'paid', paid_at: now } : r))
   }
 
-  const toggleValidated = async (commissionId: string | null, current: boolean) => {
+  const saveCommissionAmount = async (commissionId: string | null, amount: number) => {
     if (!commissionId) return alert("Commission absente")
-    const { error } = await supabase.from('commissions').update({ validated_by_manager: !current }).eq('id', commissionId)
+    const { error } = await supabase.from('commissions').update({ amount }).eq('id', commissionId)
     if (error) return alert(error.message)
-    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, validated_by_manager: !current } : r))
+    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, amount } : r))
+  }
+
+  const toggleValidated = async (commissionId: string | null, newValue: boolean) => {
+    if (!commissionId) return alert("Commission absente")
+    const { error } = await supabase.from('commissions').update({ validated_by_manager: newValue }).eq('id', commissionId)
+    if (error) return alert(error.message)
+    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, validated_by_manager: newValue } : r))
+  }
+
+  const exportCsv = () => {
+    const rowsToExport = filtered
+    const toCSV = (val: any) => val === null || val === undefined ? '' : `"${String(val).replace(/"/g, '""')}`
+    const fmtDate = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('fr-FR') : ''
+    const fmtMoney = (n?: number | null) => String((n ?? 0).toFixed(2)).replace('.', ',')
+
+    const header = ['Date reco','Client','Projet','Prescripteur','Email prescripteur','Commission €','Échéance','Statut','Payé le']
+    const lines = [header.map(toCSV).join(';')]
+
+    for (const r of rowsToExport) {
+      const line = [
+        fmtDate(r.created_at), r.client_name ?? '', r.project_title ?? '',
+        r.prescriptor_name ?? '', r.prescriptor_email ?? '',
+        fmtMoney(r.amount), fmtDate(r.due_date), r.status, fmtDate(r.paid_at)
+      ].map(toCSV).join(';')
+      lines.push(line)
+    }
+
+    const csv = '\uFEFF' + lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `commissions_${new Date().toISOString().slice(0,7)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (!isAdmin) {
+    return (
+      <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+        {err ? <p style={{ color:'crimson' }}>{err}</p> : <p>Chargement…</p>}
+      </main>
+    )
   }
 
   return (
@@ -159,17 +213,35 @@ export default function AdminCommissionsPage() {
         <details style={{ position:'relative' }}>
           <summary style={{ cursor:'pointer' }}>Filtre projet</summary>
           <div style={{ position:'absolute', background:'white', border:'1px solid #ccc', padding:8, zIndex:10 }}>
-            {PROJECTS.map(opt => (
-              <label key={opt} style={{ display:'block' }}>
+            {PROJECTS.map(p => (
+              <label key={p} style={{ display:'block' }}>
                 <input
                   type="checkbox"
-                  checked={projectFilter.includes(opt)}
-                  onChange={() => toggleFilter(opt, projectFilter, setProjectFilter)}
-                /> {opt}
+                  checked={projectFilters.includes(p)}
+                  onChange={() => setProjectFilters(projectFilters.includes(p) ? projectFilters.filter(x => x !== p) : [...projectFilters, p])}
+                /> {p}
               </label>
             ))}
           </div>
         </details>
+        {['current', 'previous', 'all'].map(key => (
+          <button
+            key={key}
+            onClick={()=>setMonthFilter(key as any)}
+            style={{
+              padding:'8px 10px',
+              borderRadius:8,
+              border:'1px solid #ddd',
+              background: monthFilter === key ? '#1677ff' : 'white',
+              color: monthFilter === key ? 'white' : '#111'
+            }}
+          >
+            {key === 'current' ? 'Mois en cours' : key === 'previous' ? 'Mois dernier' : 'Tout'}
+          </button>
+        ))}
+        <button onClick={exportCsv} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid #1677ff', background:'#1677ff', color:'white' }}>
+          Export CSV
+        </button>
       </div>
 
       {loading && <p>Chargement…</p>}
@@ -184,7 +256,7 @@ export default function AdminCommissionsPage() {
               <th style={th}>Prescripteur</th>
               <th style={th}>Commission €</th>
               <th style={th}>Échéance</th>
-              <th style={th}>Validé ✅</th>
+              <th style={th}>Validé ?</th>
               <th style={th}>Statut</th>
               <th style={th}>Actions</th>
             </tr>
@@ -201,7 +273,14 @@ export default function AdminCommissionsPage() {
                   <div>{r.prescriptor_name ?? '—'}</div>
                   <div style={{ opacity:.7, fontSize:12 }}>{r.prescriptor_email}</div>
                 </td>
-                <td style={td}>{(r.amount ?? 0).toFixed(2)}</td>
+                <td style={td}>
+                  <input
+                    type="number" step="0.01" min="0"
+                    defaultValue={r.amount ?? 0}
+                    onBlur={(e)=>saveCommissionAmount(r.commission_id, parseFloat(e.target.value || '0'))}
+                    style={{ width:110, padding:6 }}
+                  />
+                </td>
                 <td style={td}>
                   <input
                     type="date"
@@ -213,8 +292,8 @@ export default function AdminCommissionsPage() {
                 <td style={td}>
                   <input
                     type="checkbox"
-                    checked={!!r.validated_by_manager}
-                    onChange={() => toggleValidated(r.commission_id, !!r.validated_by_manager)}
+                    checked={r.validated_by_manager}
+                    onChange={(e) => toggleValidated(r.commission_id, e.target.checked)}
                   />
                 </td>
                 <td style={td}>
