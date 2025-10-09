@@ -17,7 +17,7 @@ async function sendEmail(to: string, cc: string | null, subject: string, html: s
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'onboarding@resend.dev', // OK en mode sandbox
+      from: 'notification@agence-skdigital.fr', // OK en mode sandbox
       to: [to],
       cc: cc ? [cc] : undefined,
       subject,
