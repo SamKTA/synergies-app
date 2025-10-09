@@ -49,7 +49,7 @@ export async function GET(req: Request) {
         created_at,
         due_reminder_72h_at,
         receiver_id,
-        employees!recommendations_receiver_id_fkey (
+        employees:employees!recommendations_receiver_id_fkey (
           manager:manager_id (
             email,
             first_name,
