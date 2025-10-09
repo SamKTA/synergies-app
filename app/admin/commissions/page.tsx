@@ -22,22 +22,19 @@ type Row = {
   validated_by_manager: boolean
 }
 
-const PROJECTS = ['Vente','Achat','Location','Gestion','Location & Gestion','Syndic','Ona Entreprises','Recrutement']
-
 export default function AdminCommissionsPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [rows, setRows] = useState<Row[]>([])
   const [saving, setSaving] = useState<string | null>(null)
   const [q, setQ] = useState('')
-  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current')
-  const [projectFilters, setProjectFilters] = useState<string[]>([])
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
+  const [validationFilter, setValidationFilter] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const run = async () => {
       setLoading(true); setErr(null)
-
       const { data: u } = await supabase.auth.getUser()
       if (!u?.user) { setErr('Non connecté.'); setLoading(false); return }
 
@@ -53,37 +50,29 @@ export default function AdminCommissionsPage() {
       const { data, error } = await supabase
         .from('recommendations')
         .select(`
-          id,
-          created_at,
-          client_name,
-          project_title,
-          prescriptor_name,
-          prescriptor_email,
-          deal_stage,
-          commissions (
-            id, status, amount, due_date, paid_at, validated_by_manager
-          )
+          id, created_at, client_name, project_title,
+          prescriptor_name, prescriptor_email,
+          commissions ( id, status, amount, due_date, paid_at, validated_by_manager )
         `)
+        .eq('deal_stage', 'acte_recrute')
         .order('created_at', { ascending: false })
 
       if (error) { setErr(error.message); setLoading(false); return }
 
-      const flat: Row[] = (data ?? [])
-        .filter((r: any) => r.deal_stage === 'acte_recrute')
-        .map((r: any) => ({
-          reco_id: r.id,
-          created_at: r.created_at,
-          client_name: r.client_name,
-          project_title: r.project_title,
-          prescriptor_name: r.prescriptor_name,
-          prescriptor_email: r.prescriptor_email,
-          amount: r.commissions?.amount ?? null,
-          commission_id: r.commissions?.id ?? null,
-          status: r.commissions?.status ?? 'pending',
-          due_date: r.commissions?.due_date ?? null,
-          paid_at: r.commissions?.paid_at ?? null,
-          validated_by_manager: r.commissions?.validated_by_manager ?? false
-        }))
+      const flat: Row[] = (data ?? []).map((r: any) => ({
+        reco_id: r.id,
+        created_at: r.created_at,
+        client_name: r.client_name,
+        project_title: r.project_title,
+        prescriptor_name: r.prescriptor_name,
+        prescriptor_email: r.prescriptor_email,
+        amount: r.commissions?.amount ?? null,
+        commission_id: r.commissions?.id ?? null,
+        status: r.commissions?.status ?? 'pending',
+        due_date: r.commissions?.due_date ?? null,
+        paid_at: r.commissions?.paid_at ?? null,
+        validated_by_manager: r.commissions?.validated_by_manager ?? false,
+      }))
 
       setRows(flat)
       setLoading(false)
@@ -91,44 +80,27 @@ export default function AdminCommissionsPage() {
     run()
   }, [])
 
+  const toggleFilter = (value: string, current: string[], setter: (s: string[]) => void) => {
+    setter(current.includes(value) ? current.filter(v => v !== value) : [...current, value])
+  }
+
   const filtered = useMemo(() => {
-    let list = rows
-    const today = new Date()
-
-    const inRange = (iso?: string | null, start?: Date, end?: Date) => {
-      if (!iso) return false
-      const d = new Date(iso)
-      return !isNaN(d.getTime()) && (!start || !end || (d >= start && d <= end))
-    }
-
-    if (monthFilter !== 'all') {
-      let start: Date, end: Date
-      if (monthFilter === 'current') {
-        start = new Date(today.getFullYear(), today.getMonth(), 1)
-        end   = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      } else {
-        start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-        end   = new Date(today.getFullYear(), today.getMonth(), 0)
-      }
-      list = list.filter(r => inRange(r.paid_at ?? r.due_date, start, end))
-    }
-
-    if (projectFilters.length > 0) {
-      list = list.filter(r => r.project_title && projectFilters.includes(r.project_title))
-    }
-
-    if (q) {
+    return rows.filter(r => {
       const s = q.toLowerCase()
-      list = list.filter(r =>
+      const matchSearch =
         (r.client_name ?? '').toLowerCase().includes(s) ||
         (r.project_title ?? '').toLowerCase().includes(s) ||
         (r.prescriptor_name ?? '').toLowerCase().includes(s) ||
         (r.prescriptor_email ?? '').toLowerCase().includes(s)
-      )
-    }
 
-    return list
-  }, [rows, q, monthFilter, projectFilters])
+      const matchStatus = statusFilter.length === 0 || statusFilter.includes(r.status)
+      const matchValidation = validationFilter.length === 0 ||
+        (validationFilter.includes('validated') && r.validated_by_manager) ||
+        (validationFilter.includes('not_validated') && !r.validated_by_manager)
+
+      return matchSearch && matchStatus && matchValidation
+    })
+  }, [rows, q, statusFilter, validationFilter])
 
   const updateDueDate = async (commissionId: string | null, isoDate: string) => {
     if (!commissionId) return alert("Commission absente")
@@ -156,51 +128,23 @@ export default function AdminCommissionsPage() {
     setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, amount } : r))
   }
 
-  const toggleValidated = async (commissionId: string | null, newValue: boolean) => {
+  const toggleValidation = async (commissionId: string | null, newValue: boolean) => {
     if (!commissionId) return alert("Commission absente")
     const { error } = await supabase.from('commissions').update({ validated_by_manager: newValue }).eq('id', commissionId)
     if (error) return alert(error.message)
     setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, validated_by_manager: newValue } : r))
   }
 
-  const exportCsv = () => {
-    const rowsToExport = filtered
-    const toCSV = (val: any) => val === null || val === undefined ? '' : `"${String(val).replace(/"/g, '""')}`
-    const fmtDate = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('fr-FR') : ''
-    const fmtMoney = (n?: number | null) => String((n ?? 0).toFixed(2)).replace('.', ',')
-
-    const header = ['Date reco','Client','Projet','Prescripteur','Email prescripteur','Commission €','Échéance','Statut','Payé le']
-    const lines = [header.map(toCSV).join(';')]
-
-    for (const r of rowsToExport) {
-      const line = [
-        fmtDate(r.created_at), r.client_name ?? '', r.project_title ?? '',
-        r.prescriptor_name ?? '', r.prescriptor_email ?? '',
-        fmtMoney(r.amount), fmtDate(r.due_date), r.status, fmtDate(r.paid_at)
-      ].map(toCSV).join(';')
-      lines.push(line)
-    }
-
-    const csv = '\uFEFF' + lines.join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `commissions_${new Date().toISOString().slice(0,7)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   if (!isAdmin) {
     return (
-      <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+      <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24 }}>
         {err ? <p style={{ color:'crimson' }}>{err}</p> : <p>Chargement…</p>}
       </main>
     )
   }
 
   return (
-    <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+    <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24 }}>
       <h1>Commissions — Affaires actées</h1>
 
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
@@ -211,37 +155,26 @@ export default function AdminCommissionsPage() {
           style={{ padding:10, flex:1, border:'1px solid #ddd', borderRadius:8 }}
         />
         <details style={{ position:'relative' }}>
-          <summary style={{ cursor:'pointer' }}>Filtre projet</summary>
-          <div style={{ position:'absolute', background:'white', border:'1px solid #ccc', padding:8, zIndex:10 }}>
-            {PROJECTS.map(p => (
-              <label key={p} style={{ display:'block' }}>
+          <summary style={{ cursor:'pointer' }}>Filtre payé</summary>
+          <div style={{ position:'absolute', background:'white', border:'1px solid #ccc', padding:8 }}>
+            {['paid', 'ready', 'pending'].map(status => (
+              <label key={status} style={{ display:'block' }}>
                 <input
                   type="checkbox"
-                  checked={projectFilters.includes(p)}
-                  onChange={() => setProjectFilters(projectFilters.includes(p) ? projectFilters.filter(x => x !== p) : [...projectFilters, p])}
-                /> {p}
+                  checked={statusFilter.includes(status)}
+                  onChange={() => toggleFilter(status, statusFilter, setStatusFilter)}
+                /> {status}
               </label>
             ))}
           </div>
         </details>
-        {['current', 'previous', 'all'].map(key => (
-          <button
-            key={key}
-            onClick={()=>setMonthFilter(key as any)}
-            style={{
-              padding:'8px 10px',
-              borderRadius:8,
-              border:'1px solid #ddd',
-              background: monthFilter === key ? '#1677ff' : 'white',
-              color: monthFilter === key ? 'white' : '#111'
-            }}
-          >
-            {key === 'current' ? 'Mois en cours' : key === 'previous' ? 'Mois dernier' : 'Tout'}
-          </button>
-        ))}
-        <button onClick={exportCsv} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid #1677ff', background:'#1677ff', color:'white' }}>
-          Export CSV
-        </button>
+        <details style={{ position:'relative' }}>
+          <summary style={{ cursor:'pointer' }}>Validé manager</summary>
+          <div style={{ position:'absolute', background:'white', border:'1px solid #ccc', padding:8 }}>
+            <label><input type="checkbox" checked={validationFilter.includes('validated')} onChange={() => toggleFilter('validated', validationFilter, setValidationFilter)} /> ✅ Validé</label>
+            <label><input type="checkbox" checked={validationFilter.includes('not_validated')} onChange={() => toggleFilter('not_validated', validationFilter, setValidationFilter)} /> ⏳ Pas validé</label>
+          </div>
+        </details>
       </div>
 
       {loading && <p>Chargement…</p>}
@@ -256,7 +189,7 @@ export default function AdminCommissionsPage() {
               <th style={th}>Prescripteur</th>
               <th style={th}>Commission €</th>
               <th style={th}>Échéance</th>
-              <th style={th}>Validé ?</th>
+              <th style={th}>Validé</th>
               <th style={th}>Statut</th>
               <th style={th}>Actions</th>
             </tr>
@@ -265,19 +198,15 @@ export default function AdminCommissionsPage() {
             {filtered.map(r => (
               <tr key={r.reco_id}>
                 <td style={td}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
-                <td style={td}>
-                  <div><b>{r.client_name}</b></div>
-                  <div style={{ opacity:.7 }}>{r.project_title ?? '—'}</div>
-                </td>
-                <td style={td}>
-                  <div>{r.prescriptor_name ?? '—'}</div>
-                  <div style={{ opacity:.7, fontSize:12 }}>{r.prescriptor_email}</div>
-                </td>
+                <td style={td}><b>{r.client_name}</b><div style={{ opacity:.7 }}>{r.project_title ?? '—'}</div></td>
+                <td style={td}><div>{r.prescriptor_name ?? '—'}</div><div style={{ opacity:.7, fontSize:12 }}>{r.prescriptor_email}</div></td>
                 <td style={td}>
                   <input
-                    type="number" step="0.01" min="0"
+                    type="number"
+                    step="0.01"
+                    min="0"
                     defaultValue={r.amount ?? 0}
-                    onBlur={(e)=>saveCommissionAmount(r.commission_id, parseFloat(e.target.value || '0'))}
+                    onBlur={e => saveCommissionAmount(r.commission_id, parseFloat(e.target.value || '0'))}
                     style={{ width:110, padding:6 }}
                   />
                 </td>
@@ -293,7 +222,7 @@ export default function AdminCommissionsPage() {
                   <input
                     type="checkbox"
                     checked={r.validated_by_manager}
-                    onChange={(e) => toggleValidated(r.commission_id, e.target.checked)}
+                    onChange={() => toggleValidation(r.commission_id, !r.validated_by_manager)}
                   />
                 </td>
                 <td style={td}>
