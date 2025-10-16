@@ -3,13 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@supabase/supabase-js'
 
-// --- connexion Supabase ---
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// --- typage des lignes ---
 type Row = {
   id: string
   created_at: string
@@ -23,22 +21,20 @@ type Row = {
   notes: string | null
 }
 
-// --- constantes ---
 const INTAKE = ['non_traitee', 'contacte', 'rdv_pris', 'messagerie', 'injoignable']
 const DEAL = ['nouveau', 'en_cours', 'transforme', 'acte_recrute', 'sans_suite'] as const
-
 const PROJECT_COLORS: Record<string, string> = {
-  'Vente': '#ffe0e0',
-  'Achat': '#e0f7ff',
-  'Location': '#e8ffe0',
-  'Gestion': '#fff4cc',
+  Vente: '#ffe0e0',
+  Achat: '#e0f7ff',
+  Location: '#e8ffe0',
+  Gestion: '#fff4cc',
   'Location & Gestion': '#f0e0ff',
-  'Syndic': '#e0ecff',
+  Syndic: '#e0ecff',
   'Ona Entreprises': '#ffe0f5',
-  'Recrutement': '#f0f0f0'
+  Recrutement: '#f0f0f0'
 }
 
-// --- composant modal de notes ---
+// Fenêtre modale pour les notes
 function NotesModal({
   note,
   onSave,
@@ -49,15 +45,11 @@ function NotesModal({
   onClose: () => void
 }) {
   const [value, setValue] = useState(note)
-
   return createPortal(
     <div
       style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
+        inset: 0,
         background: 'rgba(0,0,0,0.4)',
         display: 'flex',
         alignItems: 'center',
@@ -108,48 +100,25 @@ function NotesModal({
   )
 }
 
-// --- composant principal ---
+// Page principale
 export default function InboxPage() {
+  const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
-  const [rows, setRows] = useState<Row[]>([])
   const [meId, setMeId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [q, setQ] = useState('')
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
+  const [q, setQ] = useState('')
   const [intakeFilter, setIntakeFilter] = useState<string[]>([])
   const [dealFilter, setDealFilter] = useState<string[]>([])
 
-  // --- chargement initial ---
   useEffect(() => {
     const run = async () => {
-      setLoading(true)
-      setErr(null)
-      const { data: u, error: ue } = await supabase.auth.getUser()
-      if (ue) {
-        setErr(ue.message)
-        setLoading(false)
-        return
-      }
-      if (!u?.user) {
-        setErr('Connecte-toi.')
-        setLoading(false)
-        return
-      }
-
-      const { data: me, error: meErr } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('user_id', u.user.id)
-        .maybeSingle()
-
-      if (meErr || !me) {
-        setErr(meErr?.message ?? 'Pas de fiche employé.')
-        setLoading(false)
-        return
-      }
+      const { data: u } = await supabase.auth.getUser()
+      if (!u?.user) return setErr('Connecte-toi.')
+      const { data: me } = await supabase.from('employees').select('id').eq('user_id', u.user.id).maybeSingle()
+      if (!me) return setErr('Pas de fiche employé.')
       setMeId(me.id)
-
       const { data, error } = await supabase
         .from('recommendations')
         .select(
@@ -157,58 +126,35 @@ export default function InboxPage() {
         )
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
-
-      if (error) {
-        setErr(error.message)
-        setLoading(false)
-        return
-      }
+      if (error) setErr(error.message)
       setRows(data ?? [])
       setLoading(false)
     }
     run()
   }, [])
 
-  // --- filtres et recherche ---
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      const s = q.toLowerCase()
-      const matchSearch =
-        (r.client_name ?? '').toLowerCase().includes(s) ||
-        (r.project_title ?? '').toLowerCase().includes(s) ||
-        (r.intake_status ?? '').toLowerCase().includes(s) ||
-        (r.deal_stage ?? '').toLowerCase().includes(s)
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) => {
+        const s = q.toLowerCase()
+        const matchSearch =
+          (r.client_name ?? '').toLowerCase().includes(s) ||
+          (r.project_title ?? '').toLowerCase().includes(s) ||
+          (r.intake_status ?? '').toLowerCase().includes(s) ||
+          (r.deal_stage ?? '').toLowerCase().includes(s)
+        const matchIntake = intakeFilter.length === 0 || intakeFilter.includes(r.intake_status)
+        const matchDeal = dealFilter.length === 0 || dealFilter.includes(r.deal_stage)
+        return matchSearch && matchIntake && matchDeal
+      }),
+    [rows, q, intakeFilter, dealFilter]
+  )
 
-      const matchIntake =
-        intakeFilter.length === 0 || intakeFilter.includes(r.intake_status)
-      const matchDeal =
-        dealFilter.length === 0 || dealFilter.includes(r.deal_stage)
-
-      return matchSearch && matchIntake && matchDeal
-    })
-  }, [rows, q, intakeFilter, dealFilter])
-
-  const toggleFilter = (
-    value: string,
-    current: string[],
-    setter: (v: string[]) => void
-  ) => {
-    setter(
-      current.includes(value)
-        ? current.filter((v) => v !== value)
-        : [...current, value]
-    )
-  }
-
-  // --- mise à jour Supabase ---
   const updateRow = async (id: string, patch: Partial<Row>) => {
     setSavingId(id)
     const prev = rows
     const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r))
     setRows(next)
-
     const { error } = await supabase.from('recommendations').update(patch).eq('id', id)
-
     setSavingId(null)
     if (error) {
       setErr(`Erreur sauvegarde: ${error.message}`)
@@ -216,78 +162,17 @@ export default function InboxPage() {
     }
   }
 
-  // --- rendu principal ---
   return (
-    <main
-      style={{
-        maxWidth: 1100,
-        margin: '48px auto',
-        padding: 24,
-        fontFamily: 'sans-serif'
-      }}
-    >
+    <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Mes recommandations reçues</h1>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          alignItems: 'center',
-          margin: '12px 0 20px'
-        }}
-      >
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', margin: '12px 0 20px' }}>
         <input
           placeholder="Recherche (client, projet, statut)"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ padding: 10, flex: 1 }}
         />
-        <details style={{ position: 'relative' }}>
-          <summary style={{ cursor: 'pointer' }}>Filtre prise en charge</summary>
-          <div
-            style={{
-              position: 'absolute',
-              background: 'white',
-              border: '1px solid #ccc',
-              padding: 8,
-              zIndex: 10
-            }}
-          >
-            {INTAKE.map((opt) => (
-              <label key={opt} style={{ display: 'block' }}>
-                <input
-                  type="checkbox"
-                  checked={intakeFilter.includes(opt)}
-                  onChange={() => toggleFilter(opt, intakeFilter, setIntakeFilter)}
-                />{' '}
-                {opt}
-              </label>
-            ))}
-          </div>
-        </details>
-        <details style={{ position: 'relative' }}>
-          <summary style={{ cursor: 'pointer' }}>Filtre avancement</summary>
-          <div
-            style={{
-              position: 'absolute',
-              background: 'white',
-              border: '1px solid #ccc',
-              padding: 8,
-              zIndex: 10
-            }}
-          >
-            {DEAL.map((opt) => (
-              <label key={opt} style={{ display: 'block' }}>
-                <input
-                  type="checkbox"
-                  checked={dealFilter.includes(opt)}
-                  onChange={() => toggleFilter(opt, dealFilter, setDealFilter)}
-                />{' '}
-                {opt}
-              </label>
-            ))}
-          </div>
-        </details>
         <a
           href="/reco/new"
           style={{
@@ -313,9 +198,9 @@ export default function InboxPage() {
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Projet</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Prise en charge</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Avancement</th>
-              <th style={{ textAlign: 'right', borderBottom: '1px solid #ddd', padding: 8, width: 140 }}>CA HT</th>
-              <th style={{ textAlign: 'right', borderBottom: '1px solid #ddd', padding: 8, width: 160 }}>CA Annuel HT</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8, width: 120 }}>Statut</th>
+              <th style={{ textAlign: 'right', borderBottom: '1px solid #ddd', padding: 8 }}>CA HT</th>
+              <th style={{ textAlign: 'right', borderBottom: '1px solid #ddd', padding: 8 }}>CA Annuel HT</th>
+              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Statut</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Notes</th>
             </tr>
           </thead>
@@ -324,7 +209,12 @@ export default function InboxPage() {
               <tr key={r.id}>
                 <td style={{ padding: 8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
                 <td style={{ padding: 8 }}>{r.client_name}</td>
-                <td style={{ padding: 8, backgroundColor: PROJECT_COLORS[r.project_title ?? ''] ?? 'transparent' }}>
+                <td
+                  style={{
+                    padding: 8,
+                    backgroundColor: PROJECT_COLORS[r.project_title ?? ''] ?? 'transparent'
+                  }}
+                >
                   {r.project_title ?? '—'}
                 </td>
                 <td style={{ padding: 8 }}>
@@ -358,11 +248,8 @@ export default function InboxPage() {
                     type="number"
                     step="0.01"
                     value={r.amount ?? ''}
-                    placeholder="—"
                     onChange={(e) =>
-                      updateRow(r.id, {
-                        amount: e.target.value === '' ? null : Number(e.target.value)
-                      })
+                      updateRow(r.id, { amount: e.target.value === '' ? null : Number(e.target.value) })
                     }
                     style={{ width: 120, padding: 6, textAlign: 'right' }}
                   />
@@ -372,18 +259,13 @@ export default function InboxPage() {
                     type="number"
                     step="0.01"
                     value={r.annual_amount ?? ''}
-                    placeholder="—"
                     onChange={(e) =>
-                      updateRow(r.id, {
-                        annual_amount: e.target.value === '' ? null : Number(e.target.value)
-                      })
+                      updateRow(r.id, { annual_amount: e.target.value === '' ? null : Number(e.target.value) })
                     }
                     style={{ width: 120, padding: 6, textAlign: 'right' }}
                   />
                 </td>
-                <td style={{ padding: 8 }}>
-                  {savingId === r.id ? '💾 Sauvegarde…' : '—'}
-                </td>
+                <td style={{ padding: 8 }}>{savingId === r.id ? '💾 Sauvegarde…' : '—'}</td>
                 <td style={{ padding: 8 }}>
                   <button
                     onClick={() => setOpenNoteId(r.id)}
