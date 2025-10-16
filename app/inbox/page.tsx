@@ -1,13 +1,15 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import { createPortal } from 'react-dom'
+import { createClient } from '@supabase/supabase-js'
 
+// --- connexion Supabase ---
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+// --- typage des lignes ---
 type Row = {
   id: string
   created_at: string
@@ -21,6 +23,7 @@ type Row = {
   notes: string | null
 }
 
+// --- constantes ---
 const INTAKE = ['non_traitee', 'contacte', 'rdv_pris', 'messagerie', 'injoignable']
 const DEAL = ['nouveau', 'en_cours', 'transforme', 'acte_recrute', 'sans_suite'] as const
 
@@ -35,7 +38,7 @@ const PROJECT_COLORS: Record<string, string> = {
   'Recrutement': '#f0f0f0'
 }
 
-// --- composant modal pour les notes ---
+// --- composant modal de notes ---
 function NotesModal({
   note,
   onSave,
@@ -79,14 +82,7 @@ function NotesModal({
           rows={6}
           style={{ width: '100%', padding: 8, resize: 'vertical' }}
         />
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            marginTop: 12,
-            gap: 8
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12, gap: 8 }}>
           <button onClick={onClose} style={{ padding: '6px 12px' }}>
             Annuler
           </button>
@@ -121,10 +117,10 @@ export default function InboxPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
-
   const [intakeFilter, setIntakeFilter] = useState<string[]>([])
   const [dealFilter, setDealFilter] = useState<string[]>([])
 
+  // --- chargement initial ---
   useEffect(() => {
     const run = async () => {
       setLoading(true)
@@ -146,6 +142,7 @@ export default function InboxPage() {
         .select('id')
         .eq('user_id', u.user.id)
         .maybeSingle()
+
       if (meErr || !me) {
         setErr(meErr?.message ?? 'Pas de fiche employé.')
         setLoading(false)
@@ -160,6 +157,7 @@ export default function InboxPage() {
         )
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
+
       if (error) {
         setErr(error.message)
         setLoading(false)
@@ -171,6 +169,7 @@ export default function InboxPage() {
     run()
   }, [])
 
+  // --- filtres et recherche ---
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const s = q.toLowerCase()
@@ -201,6 +200,7 @@ export default function InboxPage() {
     )
   }
 
+  // --- mise à jour Supabase ---
   const updateRow = async (id: string, patch: Partial<Row>) => {
     setSavingId(id)
     const prev = rows
@@ -216,6 +216,7 @@ export default function InboxPage() {
     }
   }
 
+  // --- rendu principal ---
   return (
     <main
       style={{
@@ -257,9 +258,7 @@ export default function InboxPage() {
                 <input
                   type="checkbox"
                   checked={intakeFilter.includes(opt)}
-                  onChange={() =>
-                    toggleFilter(opt, intakeFilter, setIntakeFilter)
-                  }
+                  onChange={() => toggleFilter(opt, intakeFilter, setIntakeFilter)}
                 />{' '}
                 {opt}
               </label>
