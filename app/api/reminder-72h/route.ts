@@ -65,8 +65,15 @@ export async function GET(req: Request) {
     if (error) throw error
 
     let sent = 0
+
     for (const r of recos ?? []) {
-      const manager = r.employees?.manager
+      // ✅ Correction ici :
+      // "employees" est un tableau, et chaque "manager" est aussi un tableau
+      const manager =
+        Array.isArray(r.employees) && r.employees.length > 0
+          ? r.employees[0]?.manager?.[0]
+          : null
+
       if (!manager?.email) continue
 
       const subject = `⏰ Manager alert – reco ${r.client_name}`
@@ -82,14 +89,15 @@ export async function GET(req: Request) {
 
       await sendEmail(manager.email, null, subject, html)
 
-      await admin.from('recommendations').update({
-        due_reminder_72h_at: new Date().toISOString()
-      }).eq('id', r.id)
+      await admin
+        .from('recommendations')
+        .update({ due_reminder_72h_at: new Date().toISOString() })
+        .eq('id', r.id)
 
       await admin.from('activities').insert({
         reco_id: r.id,
         action_type: 'reminder_sent_manager',
-        note: 'Relance automatique 72h au manager'
+        note: 'Relance automatique 72h au manager',
       })
 
       sent++
@@ -97,6 +105,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, checked: recos?.length ?? 0, sent })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? 'unknown error' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? 'unknown error' },
+      { status: 500 }
+    )
   }
 }
