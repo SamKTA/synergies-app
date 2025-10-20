@@ -12,17 +12,18 @@ type Row = {
   id: string
   created_at: string
   client_name: string
+  client_phone?: string | null
+  client_email?: string | null
+  project_address?: string | null
+  project_details?: string | null
   project_title: string | null
   intake_status: string
   deal_stage: string
   amount: number | null
   annual_amount?: number | null
   receiver_id: string | null
-  notes: string | null
-  client_phone?: string | null
-  client_email?: string | null
-  client_address?: string | null
   prescriptor_name?: string | null
+  notes: string | null
 }
 
 const INTAKE = ['non_traitee', 'contacte', 'rdv_pris', 'messagerie', 'injoignable']
@@ -139,7 +140,8 @@ function DetailsModal({
           <p><b>Client :</b> {data.client_name}</p>
           <p><b>Téléphone :</b> {data.client_phone ?? '—'}</p>
           <p><b>Email :</b> {data.client_email ?? '—'}</p>
-          <p><b>Adresse :</b> {data.client_address ?? '—'}</p>
+          <p><b>Adresse projet :</b> {data.project_address ?? '—'}</p>
+          <p><b>Infos complémentaires :</b> {data.project_details ?? '—'}</p>
           <hr />
           <p><b>Projet :</b> {data.project_title ?? '—'}</p>
           <p><b>Prescripteur :</b> {data.prescriptor_name ?? '—'}</p>
@@ -188,10 +190,11 @@ export default function InboxPage() {
       const { data, error } = await supabase
         .from('recommendations')
         .select(
-          `id, created_at, client_name, client_phone, client_email, client_address, prescriptor_name,
-           project_title, intake_status, deal_stage, amount, annual_amount, receiver_id, notes`
+          `id, created_at, client_name, client_phone, client_email,
+           project_address, project_details,
+           project_title, intake_status, deal_stage, amount, annual_amount, receiver_id, prescriptor_name, notes`
         )
-        .eq('receiver_id', me.id)
+        .eq('receiver_id', me.id)   // si ta colonne a une typo 'receveir_id', remplace ici
         .order('created_at', { ascending: false })
 
       if (error) setErr(error.message)
@@ -209,7 +212,8 @@ export default function InboxPage() {
           (r.client_name ?? '').toLowerCase().includes(s) ||
           (r.project_title ?? '').toLowerCase().includes(s) ||
           (r.intake_status ?? '').toLowerCase().includes(s) ||
-          (r.deal_stage ?? '').toLowerCase().includes(s)
+          (r.deal_stage ?? '').toLowerCase().includes(s) ||
+          (r.client_phone ?? '').toLowerCase().includes(s)
         const matchIntake = intakeFilter.length === 0 || intakeFilter.includes(r.intake_status)
         const matchDeal = dealFilter.length === 0 || dealFilter.includes(r.deal_stage)
         return matchSearch && matchIntake && matchDeal
