@@ -19,6 +19,10 @@ type Row = {
   annual_amount?: number | null
   receiver_id: string | null
   notes: string | null
+  client_phone?: string | null
+  client_email?: string | null
+  client_address?: string | null
+  prescriptor_name?: string | null
 }
 
 const INTAKE = ['non_traitee', 'contacte', 'rdv_pris', 'messagerie', 'injoignable']
@@ -34,7 +38,7 @@ const PROJECT_COLORS: Record<string, string> = {
   Recrutement: '#f0f0f0'
 }
 
-// Fenêtre modale pour les notes
+// --- Modale de notes ---
 function NotesModal({
   note,
   onSave,
@@ -100,7 +104,67 @@ function NotesModal({
   )
 }
 
-// Page principale
+// --- Modale de détails client/projet ---
+function DetailsModal({
+  data,
+  onClose
+}: {
+  data: Row
+  onClose: () => void
+}) {
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}
+    >
+      <div
+        style={{
+          background: 'white',
+          padding: 20,
+          borderRadius: 8,
+          width: 420,
+          maxWidth: '90%',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+        }}
+      >
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>Détails du projet</h3>
+        <div style={{ fontSize: 15, lineHeight: 1.6 }}>
+          <p><b>Client :</b> {data.client_name}</p>
+          <p><b>Téléphone :</b> {data.client_phone ?? '—'}</p>
+          <p><b>Email :</b> {data.client_email ?? '—'}</p>
+          <p><b>Adresse :</b> {data.client_address ?? '—'}</p>
+          <hr />
+          <p><b>Projet :</b> {data.project_title ?? '—'}</p>
+          <p><b>Prescripteur :</b> {data.prescriptor_name ?? '—'}</p>
+          <p><b>Date de création :</b> {new Date(data.created_at).toLocaleDateString('fr-FR')}</p>
+        </div>
+        <div style={{ textAlign: 'right', marginTop: 16 }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 4,
+              border: '1px solid #ccc',
+              background: '#f5f5f5'
+            }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// --- Page principale ---
 export default function InboxPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +172,7 @@ export default function InboxPage() {
   const [meId, setMeId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
+  const [openDetailId, setOpenDetailId] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [intakeFilter, setIntakeFilter] = useState<string[]>([])
   const [dealFilter, setDealFilter] = useState<string[]>([])
@@ -119,13 +184,16 @@ export default function InboxPage() {
       const { data: me } = await supabase.from('employees').select('id').eq('user_id', u.user.id).maybeSingle()
       if (!me) return setErr('Pas de fiche employé.')
       setMeId(me.id)
+
       const { data, error } = await supabase
         .from('recommendations')
         .select(
-          'id, created_at, client_name, project_title, intake_status, deal_stage, amount, annual_amount, receiver_id, notes'
+          `id, created_at, client_name, client_phone, client_email, client_address, prescriptor_name,
+           project_title, intake_status, deal_stage, amount, annual_amount, receiver_id, notes`
         )
         .eq('receiver_id', me.id)
         .order('created_at', { ascending: false })
+
       if (error) setErr(error.message)
       setRows(data ?? [])
       setLoading(false)
@@ -163,7 +231,7 @@ export default function InboxPage() {
   }
 
   return (
-    <main style={{ maxWidth: 1100, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
+    <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Mes recommandations reçues</h1>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', margin: '12px 0 20px' }}>
@@ -195,13 +263,14 @@ export default function InboxPage() {
             <tr>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Date</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Client</th>
+              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Téléphone</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Projet</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Prise en charge</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Avancement</th>
               <th style={{ textAlign: 'right', borderBottom: '1px solid #ddd', padding: 8 }}>CA HT</th>
               <th style={{ textAlign: 'right', borderBottom: '1px solid #ddd', padding: 8 }}>CA Annuel HT</th>
               <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Statut</th>
-              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Notes</th>
+              <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -209,12 +278,8 @@ export default function InboxPage() {
               <tr key={r.id}>
                 <td style={{ padding: 8 }}>{new Date(r.created_at).toLocaleDateString('fr-FR')}</td>
                 <td style={{ padding: 8 }}>{r.client_name}</td>
-                <td
-                  style={{
-                    padding: 8,
-                    backgroundColor: PROJECT_COLORS[r.project_title ?? ''] ?? 'transparent'
-                  }}
-                >
+                <td style={{ padding: 8 }}>{r.client_phone ?? '—'}</td>
+                <td style={{ padding: 8, backgroundColor: PROJECT_COLORS[r.project_title ?? ''] ?? 'transparent' }}>
                   {r.project_title ?? '—'}
                 </td>
                 <td style={{ padding: 8 }}>
@@ -266,7 +331,19 @@ export default function InboxPage() {
                   />
                 </td>
                 <td style={{ padding: 8 }}>{savingId === r.id ? '💾 Sauvegarde…' : '—'}</td>
-                <td style={{ padding: 8 }}>
+                <td style={{ padding: 8, display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => setOpenDetailId(r.id)}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      border: '1px solid #ccc',
+                      background: '#f9f9f9',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ℹ️ Détails
+                  </button>
                   <button
                     onClick={() => setOpenNoteId(r.id)}
                     style={{
@@ -279,6 +356,10 @@ export default function InboxPage() {
                   >
                     📝 Notes
                   </button>
+
+                  {openDetailId === r.id && (
+                    <DetailsModal data={r} onClose={() => setOpenDetailId(null)} />
+                  )}
                   {openNoteId === r.id && (
                     <NotesModal
                       note={r.notes ?? ''}
