@@ -224,6 +224,32 @@ export default function AdminCommissionsPage() {
     <main style={{ maxWidth: 1200, margin: '48px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1>Commissions — Affaires actées</h1>
 
+      <div style={{
+        marginTop: '8px',
+        marginBottom: '24px',
+        padding: '12px 16px',
+        background: '#fafafa',
+        border: '1px solid #eaeaea',
+        borderRadius: '8px',
+        fontSize: '14px',
+        lineHeight: 1.5,
+        color: '#333'
+      }}>
+        <p style={{ margin: 0, fontWeight: 'bold' }}>Mémo direction — critères de rémunération :</p>
+        <ul style={{ marginTop: '6px', marginBottom: '6px', paddingLeft: '20px' }}>
+          <li>Projet <b>Vente</b> → Rémunération : 100€</li>
+          <li>Projet <b>Gestion</b> → Rémunération : 100€</li>
+          <li>Projet <b>Loc / Gestion</b> → Rémunération : 100€</li>
+          <li>Projet <b>Syndic</b> → Rémunération : 100€</li>
+          <li>Projet <b>Ona Entreprises</b> → Rémunération : 100€</li>
+          <li>Projet <b>Recrutement</b> → Rémunération : 100€</li>
+        </ul>
+        <p style={{ margin: 0, color: '#555' }}>
+          <b>Remarque :</b> les projets <b>Achat</b> ou <b>Location</b> ne sont pas éligibles à une prime.  
+          Vous pouvez filtrer les projets concernés à l’aide des filtres ci-dessous.
+        </p>
+      </div>
+
       <div style={{ display:'flex', gap:12, alignItems:'center', margin:'12px 0 20px' }}>
         <input
           placeholder="Recherche (client, projet, salarié)"
