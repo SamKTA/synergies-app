@@ -147,11 +147,40 @@ export default function AdminCommissionsPage() {
   }
 
   const toggleValidation = async (commissionId: string | null, current: boolean) => {
-    if (!commissionId) return alert("Commission absente")
-    const { error } = await supabase.from('commissions').update({ validated_by_manager: !current }).eq('id', commissionId)
-    if (error) return alert(error.message)
-    setRows(prev => prev.map(r => r.commission_id === commissionId ? { ...r, validated_by_manager: !current } : r))
-  }
+  if (!commissionId) return alert("Commission absente")
+
+  // 🪪 Pop-up de confirmation
+  const name = prompt("Qui valide ou dévalide cette commission ?")
+  if (!name) return alert("Action annulée")
+
+  const comment = prompt("Commentaire (facultatif)") || ""
+
+  // ✅ Mise à jour dans la table commissions
+  const { error } = await supabase
+    .from('commissions')
+    .update({ validated_by_manager: !current })
+    .eq('id', commissionId)
+
+  if (error) return alert(error.message)
+
+  // 🧾 Journalisation dans commission_logs
+  await supabase.from('commission_logs').insert({
+    commission_id: commissionId,
+    action: !current ? 'validated' : 'unvalidated',
+    done_by: name,
+    comment,
+    done_at: new Date().toISOString()
+  })
+
+  // 🔄 Mise à jour de l’état local
+  setRows(prev =>
+    prev.map(r =>
+      r.commission_id === commissionId
+        ? { ...r, validated_by_manager: !current }
+        : r
+    )
+  )
+}
 
   const exportCsv = () => {
     const rowsToExport = filtered
