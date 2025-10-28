@@ -292,7 +292,6 @@ export default function AdminCommissionsPage() {
                   {r.status === 'paid'
                     ? <span style={{ color:'green', fontWeight:600 }}>Payé</span>
                     : r.status === 'ready'
-                      ? <span style={{ color:'#1677ff' }}>Prêt</span>
                       : <span style={{ color:'#fa8c16' }}>En attente</span>}
                   {r.paid_at && <div style={{ fontSize:12, opacity:.7 }}>le {new Date(r.paid_at).toLocaleDateString('fr-FR')}</div>}
                 </td>
