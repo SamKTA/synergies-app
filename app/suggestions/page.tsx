@@ -1,81 +1,143 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useUser } from "@/hooks/useUser"; // ton hook custom utilisateur
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { useEffect, useState } from "react";
+// Chemin RELATIF car ton projet n'a pas d'alias "@/"
+// (app/suggestions/page.tsx -> ../../lib/supabase)
+import { supabase } from "../../lib/supabase";
 
 export default function SuggestionsPage() {
-  const { user } = useUser();
-  const [suggestion, setSuggestion] = useState("");
   const [loading, setLoading] = useState(false);
+  const [suggestion, setSuggestion] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [message, setMessage] = useState<null | { type: "ok" | "err"; text: string }>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user ?? null;
+      setUserId(user?.id ?? null);
+
+      // Essaie de récupérer prénom/nom depuis user_metadata si disponibles
+      const first = (user?.user_metadata as any)?.first_name ?? "";
+      const last = (user?.user_metadata as any)?.last_name ?? "";
+      const nameFromMeta = [first, last].filter(Boolean).join(" ").trim();
+
+      setDisplayName(nameFromMeta || user?.email || "Utilisateur");
+    };
+    loadUser();
+  }, []);
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage(null);
 
+    if (!userId) {
+      setMessage({ type: "err", text: "Tu dois être connecté pour proposer une fonctionnalité." });
+      return;
+    }
     if (!suggestion.trim()) {
-      toast.error("Merci de décrire ta proposition !");
+      setMessage({ type: "err", text: "Merci de décrire ta proposition." });
       return;
     }
 
     setLoading(true);
     const { error } = await supabase.from("feature_suggestions").insert([
       {
-        user_id: user?.id,
-        name: `${user?.first_name} ${user?.last_name}`,
-        suggestion,
+        user_id: userId,
+        name: displayName,
+        suggestion: suggestion.trim(),
       },
     ]);
     setLoading(false);
 
-    if (error) toast.error("Erreur lors de l’envoi 😕");
-    else {
-      toast.success("Merci pour ta proposition 💡");
+    if (error) {
+      setMessage({ type: "err", text: "Erreur lors de l’envoi. Réessaie plus tard." });
+      console.error(error);
+    } else {
+      setMessage({ type: "ok", text: "Merci pour ta proposition 💡" });
       setSuggestion("");
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto mt-10">
-      <Card className="shadow-lg border p-6">
-        <h1 className="text-2xl font-semibold mb-4 text-center text-red-600">
+    <div style={{ maxWidth: 720, margin: "32px auto", padding: "0 16px" }}>
+      <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 12, padding: 24, boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#b91c1c", textAlign: "center" }}>
           💬 Proposer une nouvelle fonctionnalité
         </h1>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Utilisateur
-              </label>
-              <input
-                type="text"
-                value={`${user?.first_name} ${user?.last_name}`}
-                readOnly
-                className="w-full border-gray-300 rounded-md bg-gray-100 px-3 py-2"
-              />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ta proposition
-              </label>
-              <Textarea
-                placeholder="Décris ici la fonctionnalité que tu aimerais voir dans Synergies..."
-                value={suggestion}
-                onChange={(e) => setSuggestion(e.target.value)}
-                className="min-h-[120px]"
-              />
-            </div>
+        <form onSubmit={onSubmit} style={{ display: "grid", gap: 16 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+              Utilisateur
+            </label>
+            <input
+              type="text"
+              value={displayName}
+              readOnly
+              style={{
+                width: "100%",
+                border: "1px solid #d1d5db",
+                borderRadius: 8,
+                background: "#f3f4f6",
+                padding: "10px 12px",
+              }}
+            />
+          </div>
 
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Envoi..." : "Envoyer ma proposition"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          <div>
+            <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+              Ta proposition
+            </label>
+            <textarea
+              placeholder="Décris ici la fonctionnalité que tu aimerais voir dans Synergies..."
+              value={suggestion}
+              onChange={(e) => setSuggestion(e.target.value)}
+              rows={6}
+              style={{
+                width: "100%",
+                border: "1px solid #d1d5db",
+                borderRadius: 8,
+                padding: "10px 12px",
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: "100%",
+              background: "#b91c1c",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 12px",
+              fontWeight: 700,
+              opacity: loading ? 0.8 : 1,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Envoi..." : "Envoyer ma proposition"}
+          </button>
+
+          {message && (
+            <div
+              style={{
+                marginTop: 4,
+                background: message.type === "ok" ? "#ecfdf5" : "#fef2f2",
+                color: message.type === "ok" ? "#065f46" : "#991b1b",
+                border: `1px solid ${message.type === "ok" ? "#a7f3d0" : "#fecaca"}`,
+                borderRadius: 8,
+                padding: "10px 12px",
+              }}
+            >
+              {message.text}
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 }
