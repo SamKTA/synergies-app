@@ -60,7 +60,7 @@ export default function SuggestionsPage() {
     } else {
       setMessage({ type: "ok", text: "Merci pour ta proposition 💡" });
       setSuggestion("");
-    };
+    }
 
   return (
     <div style={{ maxWidth: 720, margin: "32px auto", padding: "0 16px" }}>
