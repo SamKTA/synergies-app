@@ -52,13 +52,15 @@ export default function SuggestionsPage() {
     setLoading(false);
 
     if (error) {
-      setMessage({ type: "err", text: "Erreur lors de l’envoi. Réessaie plus tard." });
-      console.error(error);
+      console.error("[feature_suggestions.insert]", error);
+      setMessage({
+        type: "err",
+        text: `Erreur: ${error.message}`, // <— afficher le vrai message
+      });
     } else {
       setMessage({ type: "ok", text: "Merci pour ta proposition 💡" });
       setSuggestion("");
-    }
-  };
+    };
 
   return (
     <div style={{ maxWidth: 720, margin: "32px auto", padding: "0 16px" }}>
