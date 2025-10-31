@@ -27,6 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/inbox" style={linkStyle}>Mes reçues</Link>
               <Link href="/sent" style={linkStyle}>Mes envoyées</Link>
               <Link href="/reco/new" style={linkStyle}>Nouvelle reco</Link>
+
+              <Link href="/suggestions" style={linkStyle}>💡 Propositions</Link>
+              
               <AdminLink /> {/* ✅ Le lien Commissions s'insère naturellement ici */}
             </div>
             <Link href="/login" style={{ ...linkStyle, fontWeight: 500, opacity: 0.9 }}>
