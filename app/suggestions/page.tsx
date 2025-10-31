@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// Chemin RELATIF car ton projet n'a pas d'alias "@/"
-// (app/suggestions/page.tsx -> ../../lib/supabase)
 import { supabase } from "../../lib/supabase";
 
 export default function SuggestionsPage() {
@@ -18,7 +16,6 @@ export default function SuggestionsPage() {
       const user = data?.user ?? null;
       setUserId(user?.id ?? null);
 
-      // Essaie de récupérer prénom/nom depuis user_metadata si disponibles
       const first = (user?.user_metadata as any)?.first_name ?? "";
       const last = (user?.user_metadata as any)?.last_name ?? "";
       const nameFromMeta = [first, last].filter(Boolean).join(" ").trim();
@@ -55,23 +52,48 @@ export default function SuggestionsPage() {
       console.error("[feature_suggestions.insert]", error);
       setMessage({
         type: "err",
-        text: `Erreur: ${error.message}`, // <— afficher le vrai message
+        text: `Erreur: ${error.message}`,
       });
     } else {
       setMessage({ type: "ok", text: "Merci pour ta proposition 💡" });
       setSuggestion("");
     }
+  }; // 👈 il manquait cette accolade ici !
 
   return (
     <div style={{ maxWidth: 720, margin: "32px auto", padding: "0 16px" }}>
-      <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 12, padding: 24, boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#b91c1c", textAlign: "center" }}>
+      <div
+        style={{
+          background: "white",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: 24,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        }}
+      >
+        <h1
+          style={{
+            fontSize: 24,
+            fontWeight: 700,
+            marginBottom: 16,
+            color: "#b91c1c",
+            textAlign: "center",
+          }}
+        >
           💬 Proposer une nouvelle fonctionnalité
         </h1>
 
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 16 }}>
           <div>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#374151",
+                marginBottom: 6,
+              }}
+            >
               Utilisateur
             </label>
             <input
@@ -89,7 +111,15 @@ export default function SuggestionsPage() {
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#374151",
+                marginBottom: 6,
+              }}
+            >
               Ta proposition
             </label>
             <textarea
@@ -130,7 +160,9 @@ export default function SuggestionsPage() {
                 marginTop: 4,
                 background: message.type === "ok" ? "#ecfdf5" : "#fef2f2",
                 color: message.type === "ok" ? "#065f46" : "#991b1b",
-                border: `1px solid ${message.type === "ok" ? "#a7f3d0" : "#fecaca"}`,
+                border: `1px solid ${
+                  message.type === "ok" ? "#a7f3d0" : "#fecaca"
+                }`,
                 borderRadius: 8,
                 padding: "10px 12px",
               }}
