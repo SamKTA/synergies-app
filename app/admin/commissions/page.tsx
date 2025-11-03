@@ -242,7 +242,7 @@ export default function AdminCommissionsPage() {
           <li>Projet <b>Loc / Gestion</b> → Rémunération : 100€</li>
           <li>Projet <b>Syndic</b> → Rémunération : 100€</li>
           <li>Projet <b>Ona Entreprises</b> → Rémunération : 100€</li>
-          <li>Projet <b>Recrutement</b> → Rémunération : 100€</li>
+          <li>Projet <b>Recrutement</b> → Rémunération : 500€</li>
         </ul>
         <p style={{ margin: 0, color: '#555' }}>
           <b>Remarque :</b> les projets <b>Achat</b> ou <b>Location</b> ne sont pas éligibles à une prime.  
