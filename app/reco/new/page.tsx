@@ -24,6 +24,7 @@ const PROJECT_OPTIONS = [
   { value: 'Syndic', color: '#fcd34d' },
   { value: 'Ona Entreprises', color: '#ddd6fe' },
   { value: 'Recrutement', color: '#fecaca' },
+  { value: 'CGP', color: '#c7d2fe' },
 ]
 
 export default function NewRecoPage() {
