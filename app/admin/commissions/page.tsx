@@ -50,50 +50,24 @@ function CommissionDetailsModal({
   row: Row
   onClose: () => void
 }) {
-  const [receiverName, setReceiverName] = useState<string | null>(null)
   const [receiverEmail, setReceiverEmail] = useState<string | null>(null)
   const [receiverLoaded, setReceiverLoaded] = useState(false)
 
   useEffect(() => {
     const run = async () => {
-      // 1) On récupère la reco pour avoir receiver_id
-      const { data: reco, error: recoError } = await supabase
+      const { data, error } = await supabase
         .from('recommendations')
-        .select('id, receiver_id')
+        .select('receiver_email')
         .eq('id', row.reco_id)
         .maybeSingle()
 
-      if (recoError) {
-        console.error('Erreur chargement reco :', recoError)
+      if (error) {
+        console.error('Erreur chargement receveur :', error)
         setReceiverLoaded(true)
         return
       }
 
-      if (!reco || !reco.receiver_id) {
-        // pas de receveur
-        setReceiverLoaded(true)
-        return
-      }
-
-      // 2) On va chercher le collaborateur dans employees
-      const { data: emp, error: empError } = await supabase
-        .from('employees')
-        .select('first_name, last_name, email')
-        .eq('id', reco.receiver_id)
-        .maybeSingle()
-
-      if (empError) {
-        console.error('Erreur chargement employé :', empError)
-        setReceiverLoaded(true)
-        return
-      }
-
-      if (emp) {
-        const name = `${emp.first_name ?? ''} ${emp.last_name ?? ''}`.trim()
-        setReceiverName(name || null)
-        setReceiverEmail(emp.email ?? null)
-      }
-
+      setReceiverEmail((data as any)?.receiver_email ?? null)
       setReceiverLoaded(true)
     }
 
@@ -121,8 +95,8 @@ function CommissionDetailsModal({
             <b>Receveur :</b>{' '}
             {!receiverLoaded
               ? 'Chargement…'
-              : receiverName
-              ? `${receiverName}${receiverEmail ? ` (${receiverEmail})` : ''}`
+              : receiverEmail
+              ? receiverEmail
               : '—'}
           </p>
 
