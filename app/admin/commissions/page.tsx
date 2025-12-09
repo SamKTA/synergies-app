@@ -96,6 +96,7 @@ export default function AdminCommissionsPage() {
   const [validationFilter, setValidationFilter] = useState<string[]>([])
   const [projectFilter, setProjectFilter] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [openDetailId, setOpenDetailId] = useState<string | null>(null)
 
   useEffect(() => {
     const run = async () => {
