@@ -414,13 +414,35 @@ export default function AdminCommissionsPage() {
                   {r.paid_at && <div style={{ fontSize:12, opacity:.7 }}>le {new Date(r.paid_at).toLocaleDateString('fr-FR')}</div>}
                 </td>
                 <td style={td}>
-                  <button
-                    disabled={saving === r.commission_id || r.status === 'paid'}
-                    onClick={()=>markPaid(r.commission_id)}
-                    style={{ padding:'6px 10px' }}
-                  >
-                    {saving === r.commission_id ? '…' : 'Marquer payé'}
-                  </button>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button
+                      onClick={() => setOpenDetailId(r.reco_id)}
+                      style={{
+                        padding:'6px 10px',
+                        borderRadius:6,
+                        border:'1px solid #ccc',
+                        background:'#f9f9f9',
+                        cursor:'pointer'
+                      }}
+                    >
+                      ℹ️ Détails
+                    </button>
+                
+                    <button
+                      disabled={saving === r.commission_id || r.status === 'paid'}
+                      onClick={()=>markPaid(r.commission_id)}
+                      style={{ padding:'6px 10px' }}
+                    >
+                      {saving === r.commission_id ? '…' : 'Marquer payé'}
+                    </button>
+                  </div>
+                
+                  {openDetailId === r.reco_id && (
+                    <CommissionDetailsModal
+                      row={r}
+                      onClose={() => setOpenDetailId(null)}
+                    />
+                  )}
                 </td>
               </tr>
             ))}
