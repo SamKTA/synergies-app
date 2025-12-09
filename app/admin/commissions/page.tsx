@@ -308,7 +308,7 @@ export default function AdminCommissionsPage() {
           <li>Projet <b>Recrutement</b> → Rémunération : 500€</li>
         </ul>
         <p style={{ margin: 0, color: '#555' }}>
-          <b>Remarque :</b> les projets <b>Achat</b> ou <b>Location</b> ne sont pas éligibles à une prime.  
+          <b>Remarque :</b> les projets <b>Achat</b> , <b>Location</b> ou <b>CGP</b> ne sont pas éligibles à une prime.  
           Vous pouvez filtrer les projets concernés à l’aide des filtres ci-dessous.
         </p>
       </div>
