@@ -52,44 +52,53 @@ function CommissionDetailsModal({
 }) {
   const [receiverName, setReceiverName] = useState<string | null>(null)
   const [receiverEmail, setReceiverEmail] = useState<string | null>(null)
+  const [receiverLoaded, setReceiverLoaded] = useState(false)
 
   useEffect(() => {
     const run = async () => {
-      const { data, error } = await supabase
+      // 1) On récupère la reco pour avoir receiver_id
+      const { data: reco, error: recoError } = await supabase
         .from('recommendations')
-        .select(`
-          id,
-          receiver:employees!recommendations_receiver_id_fkey (
-            first_name,
-            last_name,
-            email
-          )
-        `)
+        .select('id, receiver_id')
         .eq('id', row.reco_id)
         .maybeSingle()
 
-      if (error) {
-        console.error('Erreur chargement receveur :', error)
+      if (recoError) {
+        console.error('Erreur chargement reco :', recoError)
+        setReceiverLoaded(true)
         return
       }
 
-      if (data && (data as any).receiver) {
-        const receiverData: any = (data as any).receiver
-        const receiver = Array.isArray(receiverData)
-          ? receiverData[0]
-          : receiverData
-
-        if (receiver) {
-          const name = `${receiver.first_name ?? ''} ${receiver.last_name ?? ''}`.trim()
-          setReceiverName(name || null)
-          setReceiverEmail(receiver.email ?? null)
-        }
+      if (!reco || !reco.receiver_id) {
+        // pas de receveur
+        setReceiverLoaded(true)
+        return
       }
+
+      // 2) On va chercher le collaborateur dans employees
+      const { data: emp, error: empError } = await supabase
+        .from('employees')
+        .select('first_name, last_name, email')
+        .eq('id', reco.receiver_id)
+        .maybeSingle()
+
+      if (empError) {
+        console.error('Erreur chargement employé :', empError)
+        setReceiverLoaded(true)
+        return
+      }
+
+      if (emp) {
+        const name = `${emp.first_name ?? ''} ${emp.last_name ?? ''}`.trim()
+        setReceiverName(name || null)
+        setReceiverEmail(emp.email ?? null)
+      }
+
+      setReceiverLoaded(true)
     }
 
     run()
-    // le row ne change pas pendant la vie de la modale → [] suffit
-  }, [])
+  }, [row.reco_id])
 
   return createPortal(
     <div style={overlayStyle}>
@@ -110,9 +119,11 @@ function CommissionDetailsModal({
 
           <p>
             <b>Receveur :</b>{' '}
-            {receiverName
+            {!receiverLoaded
+              ? 'Chargement…'
+              : receiverName
               ? `${receiverName}${receiverEmail ? ` (${receiverEmail})` : ''}`
-              : 'Chargement…'}
+              : '—'}
           </p>
 
           <hr />
