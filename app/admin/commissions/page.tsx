@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { createPortal } from 'react-dom'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,68 @@ type Row = {
   due_date: string | null
   paid_at: string | null
   validated_by_manager: boolean
+}
+
+const overlayStyle = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,0.4)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1000,
+} as const
+
+const modalStyle = {
+  background: 'white',
+  padding: 20,
+  borderRadius: 8,
+  width: 420,
+  maxWidth: '90%',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+} as const
+
+function CommissionDetailsModal({
+  row,
+  onClose,
+}: {
+  row: Row
+  onClose: () => void
+}) {
+  return createPortal(
+    <div style={overlayStyle}>
+      <div style={modalStyle}>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>
+          Détails de la recommandation
+        </h3>
+
+        <div style={{ fontSize: 15, lineHeight: 1.6 }}>
+          <p><b>Client :</b> {row.client_name}</p>
+          <p><b>Projet :</b> {row.project_title ?? '—'}</p>
+          <p><b>Envoyeur :</b> {row.prescriptor_name ?? '—'} ({row.prescriptor_email ?? '—'})</p>
+          <hr />
+          <p><b>Montant :</b> {row.amount ?? '—'} €</p>
+          <p><b>Statut :</b> {row.status}</p>
+          <p><b>Échéance :</b> {row.due_date ?? '—'}</p>
+          <p><b>Créé le :</b> {new Date(row.created_at).toLocaleDateString('fr-FR')}</p>
+        </div>
+
+        <div style={{ textAlign: 'right', marginTop: 16 }}>
+          <button
+            onClick={onClose}
+            style={{
+              border: '1px solid #ccc',
+              borderRadius: 4,
+              padding: '6px 12px',
+            }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
 export default function AdminCommissionsPage() {
