@@ -76,12 +76,18 @@ function CommissionDetailsModal({
         return
       }
 
-      if (data && data.receiver) {
-        const name = `${data.receiver.first_name} ${data.receiver.last_name}`.trim()
-        setReceiverName(name || null)
-        setReceiverEmail(data.receiver.email ?? null)
+           if (data && data.receiver) {
+        // Supabase tape `receiver` comme un tableau, on prend le premier élément si besoin
+        const receiver = Array.isArray(data.receiver)
+          ? data.receiver[0]
+          : (data.receiver as any)
+
+        if (receiver) {
+          const name = `${receiver.first_name ?? ''} ${receiver.last_name ?? ''}`.trim()
+          setReceiverName(name || null)
+          setReceiverEmail(receiver.email ?? null)
+        }
       }
-    }
 
     run()
   }, [row.reco_id])
