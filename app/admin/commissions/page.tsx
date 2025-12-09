@@ -55,19 +55,16 @@ function CommissionDetailsModal({
 
   useEffect(() => {
     const run = async () => {
-      // On va chercher la reco + le receveur
       const { data, error } = await supabase
         .from('recommendations')
-        .select(
-          `
+        .select(`
           id,
           receiver:employees!recommendations_receiver_id_fkey (
             first_name,
             last_name,
             email
           )
-        `
-        )
+        `)
         .eq('id', row.reco_id)
         .maybeSingle()
 
@@ -76,11 +73,11 @@ function CommissionDetailsModal({
         return
       }
 
-           if (data && data.receiver) {
-        // Supabase tape `receiver` comme un tableau, on prend le premier élément si besoin
-        const receiver = Array.isArray(data.receiver)
-          ? data.receiver[0]
-          : (data.receiver as any)
+      if (data && (data as any).receiver) {
+        const receiverData: any = (data as any).receiver
+        const receiver = Array.isArray(receiverData)
+          ? receiverData[0]
+          : receiverData
 
         if (receiver) {
           const name = `${receiver.first_name ?? ''} ${receiver.last_name ?? ''}`.trim()
@@ -88,21 +85,27 @@ function CommissionDetailsModal({
           setReceiverEmail(receiver.email ?? null)
         }
       }
+    }
 
     run()
-  }, [row.reco_id])
+    // le row ne change pas pendant la vie de la modale → [] suffit
+  }, [])
 
   return createPortal(
     <div style={overlayStyle}>
       <div style={modalStyle}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>Détails de la recommandation</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>
+          Détails de la recommandation
+        </h3>
+
         <div style={{ fontSize: 15, lineHeight: 1.6 }}>
           <p><b>Client :</b> {row.client_name}</p>
           <p><b>Projet :</b> {row.project_title ?? '—'}</p>
 
           <p>
             <b>Envoyeur (prescripteur) :</b>{' '}
-            {row.prescriptor_name ?? '—'} {row.prescriptor_email ? `(${row.prescriptor_email})` : ''}
+            {row.prescriptor_name ?? '—'}{' '}
+            {row.prescriptor_email ? `(${row.prescriptor_email})` : ''}
           </p>
 
           <p>
@@ -116,7 +119,10 @@ function CommissionDetailsModal({
           <p><b>Montant commission :</b> {row.amount ?? '—'} €</p>
           <p><b>Statut commission :</b> {row.status}</p>
           <p><b>Échéance paiement :</b> {row.due_date ?? '—'}</p>
-          <p><b>Date de création :</b> {new Date(row.created_at).toLocaleDateString('fr-FR')}</p>
+          <p>
+            <b>Date de création :</b>{' '}
+            {new Date(row.created_at).toLocaleDateString('fr-FR')}
+          </p>
         </div>
 
         <div style={{ textAlign: 'right', marginTop: 16 }}>
