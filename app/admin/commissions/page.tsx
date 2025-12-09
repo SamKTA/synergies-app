@@ -50,22 +50,67 @@ function CommissionDetailsModal({
   row: Row
   onClose: () => void
 }) {
+  const [receiverName, setReceiverName] = useState<string | null>(null)
+  const [receiverEmail, setReceiverEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const run = async () => {
+      // On va chercher la reco + le receveur
+      const { data, error } = await supabase
+        .from('recommendations')
+        .select(
+          `
+          id,
+          receiver:employees!recommendations_receiver_id_fkey (
+            first_name,
+            last_name,
+            email
+          )
+        `
+        )
+        .eq('id', row.reco_id)
+        .maybeSingle()
+
+      if (error) {
+        console.error('Erreur chargement receveur :', error)
+        return
+      }
+
+      if (data && data.receiver) {
+        const name = `${data.receiver.first_name} ${data.receiver.last_name}`.trim()
+        setReceiverName(name || null)
+        setReceiverEmail(data.receiver.email ?? null)
+      }
+    }
+
+    run()
+  }, [row.reco_id])
+
   return createPortal(
     <div style={overlayStyle}>
       <div style={modalStyle}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>
-          Détails de la recommandation
-        </h3>
-
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>Détails de la recommandation</h3>
         <div style={{ fontSize: 15, lineHeight: 1.6 }}>
           <p><b>Client :</b> {row.client_name}</p>
           <p><b>Projet :</b> {row.project_title ?? '—'}</p>
-          <p><b>Envoyeur :</b> {row.prescriptor_name ?? '—'} ({row.prescriptor_email ?? '—'})</p>
+
+          <p>
+            <b>Envoyeur (prescripteur) :</b>{' '}
+            {row.prescriptor_name ?? '—'} {row.prescriptor_email ? `(${row.prescriptor_email})` : ''}
+          </p>
+
+          <p>
+            <b>Receveur :</b>{' '}
+            {receiverName
+              ? `${receiverName}${receiverEmail ? ` (${receiverEmail})` : ''}`
+              : 'Chargement…'}
+          </p>
+
           <hr />
-          <p><b>Montant :</b> {row.amount ?? '—'} €</p>
-          <p><b>Statut :</b> {row.status}</p>
-          <p><b>Échéance :</b> {row.due_date ?? '—'}</p>
-          <p><b>Créé le :</b> {new Date(row.created_at).toLocaleDateString('fr-FR')}</p>
+          <p><b>Montant commission :</b> {row.amount ?? '—'} €</p>
+          <p><b>Statut commission :</b> {row.status}</p>
+          <p><b>Échéance paiement :</b> {row.due_date ?? '—'}</p>
+          <p><b>Date de création :</b> {new Date(row.created_at).toLocaleDateString('fr-FR')}</p>
         </div>
 
         <div style={{ textAlign: 'right', marginTop: 16 }}>
