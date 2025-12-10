@@ -1,3 +1,4 @@
+// app/api/reminder-48h/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -8,25 +9,48 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY!
 // client "admin" (bypass RLS) — sécurisé car côté serveur
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-async function sendEmail(to: string, cc: string | null, subject: string, html: string) {
-  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY missing')
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'notification@agence-skdigital.fr', // OK en mode sandbox
-      to: [to],
-      cc: cc ? [cc] : undefined,
-      subject,
-      html,
-    }),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text)
+// petite pause entre les envois pour éviter le rate limit
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function sendEmail(
+  to: string,
+  cc: string | null,
+  subject: string,
+  html: string
+): Promise<boolean> {
+  if (!RESEND_API_KEY) {
+    console.error('RESEND_API_KEY missing')
+    return false
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'notification@agence-skdigital.fr', // OK en mode sandbox
+        to: [to],
+        cc: cc ? [cc] : undefined,
+        subject,
+        html,
+      }),
+    })
+
+    if (!res.ok) {
+      const text = await res.text()
+      console.error('Resend error:', text)
+      return false
+    }
+
+    return true
+  } catch (e: any) {
+    console.error('Resend fetch error:', e?.message ?? e)
+    return false
   }
 }
 
@@ -51,36 +75,60 @@ export async function GET(req: Request) {
     if (qErr) throw qErr
 
     let sent = 0
+
     for (const r of recos ?? []) {
+      if (!r.receiver_email) {
+        console.warn('Reco sans receiver_email, id =', r.id)
+        continue
+      }
+
       const subject = `Relance – recommandation ${r.client_name ?? ''}`
       const html = `
         <h2>Relance automatique (48h)</h2>
         <p>Vous avez une recommandation en attente de prise en charge.</p>
         <p><b>Client :</b> ${r.client_name ?? '—'}</p>
         <p><b>Statut :</b> ${r.intake_status}</p>
-        <p style="opacity:.7">Créée le : ${new Date(
-          r.created_at
-        ).toLocaleString('fr-FR')}</p>
+        <p style="opacity:.7">Créée le : ${new Date(r.created_at).toLocaleString('fr-FR')}</p>
         <hr />
         <p>Merci de mettre à jour le statut dans l’application.</p>
       `.trim()
 
-      // 2) Envoi e-mail
-      await sendEmail(r.receiver_email, r.prescriptor_email ?? null, subject, html)
+      // 2) Envoi e-mail (sans faire crasher toute la route)
+      const ok = await sendEmail(
+        r.receiver_email,
+        r.prescriptor_email ?? null,
+        subject,
+        html
+      )
+
+      // on ralentit un peu pour respecter la limite de 2 req/s
+      await wait(600)
+
+      if (!ok) {
+        // si l'email n'est pas parti, on ne marque pas comme rappelé
+        // => il sera retenté au prochain passage
+        continue
+      }
 
       // 3) Marquer rappel + log activité
       const { error: upErr } = await admin
         .from('recommendations')
         .update({ due_reminder_at: new Date().toISOString() })
         .eq('id', r.id)
-      if (upErr) throw upErr
+      if (upErr) {
+        console.error('Error updating due_reminder_at for reco', r.id, upErr)
+        continue
+      }
 
       const { error: actErr } = await admin.from('activities').insert({
         reco_id: r.id,
         action_type: 'reminder_sent',
         note: 'Relance automatique 48h (intake non_traitee)',
       })
-      if (actErr) throw actErr
+      if (actErr) {
+        console.error('Error inserting activity for reco', r.id, actErr)
+        continue
+      }
 
       sent++
     }
