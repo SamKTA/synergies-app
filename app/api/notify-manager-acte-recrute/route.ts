@@ -117,8 +117,7 @@ export async function GET() {
           <strong>Projet :</strong> ${projectTitle}
         </p>
         <p>
-          Tu peux consulter le détail et valider la recommandation directement dans Synergies :<br />
-          <a href="${recoUrl}" target="_blank" rel="noopener noreferrer">Voir la recommandation</a>
+          Merci de valider la recommandation directement dans l'application Synergies.
         </p>
         <p>
           Bonne journée,<br />
