@@ -3,6 +3,10 @@
     {
       "path": "/api/reminder-48h",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/notify-manager-acte-recrute",
+      "schedule": "0 7 * * *"
     }
   ]
 }
