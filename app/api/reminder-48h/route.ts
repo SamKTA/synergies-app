@@ -31,13 +31,6 @@ async function sendEmail(to: string, cc: string | null, subject: string, html: s
 }
 
 export async function GET(req: Request) {
-  // --- sécurité: clé obligatoire ---
-  const url = new URL(req.url)
-  const key = url.searchParams.get('key') || req.headers.get('x-cron-secret')
-  if (!process.env.CRON_SECRET || key !== process.env.CRON_SECRET) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
-
   try {
     // 1) Cible : non_traitee, créées il y a ≥ 48h
     //    et pas rappelées dans les dernières 24h
@@ -46,7 +39,9 @@ export async function GET(req: Request) {
 
     const { data: recos, error: qErr } = await admin
       .from('recommendations')
-      .select('id, prescriptor_email, client_name, receiver_email, created_at, intake_status, due_reminder_at')
+      .select(
+        'id, prescriptor_email, client_name, receiver_email, created_at, intake_status, due_reminder_at'
+      )
       .eq('intake_status', 'non_traitee')
       .lte('created_at', since48h)
       .or(`due_reminder_at.is.null,due_reminder_at.lte.${since24h}`)
@@ -63,7 +58,9 @@ export async function GET(req: Request) {
         <p>Vous avez une recommandation en attente de prise en charge.</p>
         <p><b>Client :</b> ${r.client_name ?? '—'}</p>
         <p><b>Statut :</b> ${r.intake_status}</p>
-        <p style="opacity:.7">Créée le : ${new Date(r.created_at).toLocaleString('fr-FR')}</p>
+        <p style="opacity:.7">Créée le : ${new Date(
+          r.created_at
+        ).toLocaleString('fr-FR')}</p>
         <hr />
         <p>Merci de mettre à jour le statut dans l’application.</p>
       `.trim()
@@ -78,13 +75,11 @@ export async function GET(req: Request) {
         .eq('id', r.id)
       if (upErr) throw upErr
 
-      const { error: actErr } = await admin
-        .from('activities')
-        .insert({
-          reco_id: r.id,
-          action_type: 'reminder_sent',
-          note: 'Relance automatique 48h (intake non_traitee)',
-        })
+      const { error: actErr } = await admin.from('activities').insert({
+        reco_id: r.id,
+        action_type: 'reminder_sent',
+        note: 'Relance automatique 48h (intake non_traitee)',
+      })
       if (actErr) throw actErr
 
       sent++
@@ -92,6 +87,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, checked: recos?.length ?? 0, sent })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? 'unknown error' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? 'unknown error' },
+      { status: 500 }
+    )
   }
 }
