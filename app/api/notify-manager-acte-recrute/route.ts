@@ -18,7 +18,10 @@ type Recommendation = {
   deal_stage: string
   client_name: string | null
   project_title: string | null
-  prescriptor_id: string | null
+  // ⬇️ CHANGÉ : on passe par le receveur
+  receiver_id: string | null
+  receiver_email: string | null
+  created_at: string | null
   manager_notified_at: string | null
 }
 
@@ -36,7 +39,8 @@ export async function GET() {
     const { data: recos, error } = await supabase
       .from('recommendations')
       .select(
-        'id, deal_stage, client_name, project_title, prescriptor_id, manager_notified_at'
+        // ⬇️ CHANGÉ : on récupère receiver_id/receiver_email/created_at
+        'id, deal_stage, client_name, project_title, receiver_id, receiver_email, created_at, manager_notified_at'
       )
       .eq('deal_stage', 'acte_recrute')
       .is('manager_notified_at', null)
@@ -55,34 +59,56 @@ export async function GET() {
 
     const notifiedRecoIds: string[] = []
 
-    // 2. Pour chaque reco : remonter au prescripteur puis au manager, et envoyer l’email
+    // 2. Pour chaque reco : remonter au receveur puis au manager, et envoyer l’email
     for (const reco of recos as Recommendation[]) {
-      if (!reco.prescriptor_id) continue
+      // ⬇️ CHANGÉ : on vise le receveur, id en priorité, sinon email en fallback
+      let receiver: Employee | null = null
 
-      // 2.1 Récupérer le prescripteur
-      const { data: prescriptor, error: prescriptorError } = await supabase
-        .from('employees')
-        .select('id, first_name, last_name, email, manager_id')
-        .eq('id', reco.prescriptor_id)
-        .single()
+      if (reco.receiver_id) {
+        const { data: receiverData, error: receiverError } = await supabase
+          .from('employees')
+          .select('id, first_name, last_name, email, manager_id')
+          .eq('id', reco.receiver_id)
+          .single()
 
-      if (prescriptorError || !prescriptor) {
-        console.error('Error fetching prescriptor:', prescriptorError)
+        if (!receiverError && receiverData) {
+          receiver = receiverData as Employee
+        } else if (receiverError) {
+          console.error('Error fetching receiver by id:', receiverError)
+        }
+      }
+
+      if (!receiver && reco.receiver_email) {
+        const { data: receiverData, error: receiverError } = await supabase
+          .from('employees')
+          .select('id, first_name, last_name, email, manager_id')
+          .eq('email', reco.receiver_email)
+          .single()
+
+        if (!receiverError && receiverData) {
+          receiver = receiverData as Employee
+        } else if (receiverError) {
+          console.error('Error fetching receiver by email:', receiverError)
+        }
+      }
+
+      if (!receiver) {
+        console.warn(`Receiver not found for reco ${reco.id}, skipping`)
         continue
       }
 
-      const p = prescriptor as Employee
+      const r = receiver as Employee
 
-      if (!p.manager_id) {
-        console.warn(`Prescriptor ${p.id} has no manager_id, skipping`)
+      if (!r.manager_id) {
+        console.warn(`Receiver ${r.id} has no manager_id, skipping`)
         continue
       }
 
-      // 2.2 Récupérer le manager
+      // 2.2 Récupérer le manager (du receveur)
       const { data: manager, error: managerError } = await supabase
         .from('employees')
         .select('id, first_name, last_name, email')
-        .eq('id', p.manager_id)
+        .eq('id', r.manager_id)
         .single()
 
       if (managerError || !manager) {
@@ -98,12 +124,12 @@ export async function GET() {
 
       // 2.3 Construire le contenu de l’e-mail
       const managerFirstName = m.first_name || 'Bonjour'
-      const prescriptorName = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()
+      const receiverName = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim()
       const clientName = reco.client_name ?? 'un client'
       const projectTitle = reco.project_title ?? 'Projet non spécifié'
-
-      // Lien vers l’app (à adapter si besoin)
-      const recoUrl = `${process.env.NEXT_PUBLIC_APP_URL}/admin/commissions?reco_id=${reco.id}`
+      const recoDate = reco.created_at
+        ? new Date(reco.created_at).toLocaleDateString('fr-FR')
+        : 'Non renseignée'
 
       const subject = `Nouvelle recommandation à valider – ${clientName}`
       const html = `
@@ -112,8 +138,9 @@ export async function GET() {
           Tu as une nouvelle recommandation en <strong>acte recruté</strong> réalisée par un membre de ton équipe.
         </p>
         <p>
-          <strong>Prescripteur :</strong> ${prescriptorName || 'Non renseigné'}<br />
           <strong>Client :</strong> ${clientName}<br />
+          <strong>Receveur :</strong> ${receiverName || 'Non renseigné'}<br />
+          <strong>Date de la recommandation :</strong> ${recoDate}<br />
           <strong>Projet :</strong> ${projectTitle}
         </p>
         <p>
