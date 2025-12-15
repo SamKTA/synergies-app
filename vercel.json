@@ -7,10 +7,6 @@
     {
       "path": "/api/notify-manager-acte-recrute",
       "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/reminder-72h-manager",
-      "schedule": "0 9 * * *"
     }
   ]
 }
